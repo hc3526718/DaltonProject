@@ -36,6 +36,8 @@ import { useUsernameAvailability } from '../profile/useUsernameAvailability';
 import { InterestsEditor } from '../components/InterestsEditor';
 import { DISCOVERY_OPTIONS, PERSONA_OPTIONS, SPORT_OPTIONS } from './onboardingCopy';
 
+const Stack = createNativeStackNavigator<OnboardingStackParamList>();
+
 function showCompeteOrCoachSportStep(personaRole: string): boolean {
   return personaRole === 'athlete' || personaRole === 'coach';
 }

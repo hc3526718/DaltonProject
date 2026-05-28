@@ -92,12 +92,13 @@ export function MediaProposalWizard({ navigation }: Props) {
     setPublishing(true);
     setError(null);
     const uploaded: string[] = [];
+    const url = await uploadProposalAttachment(user.id, 'media', video.uri, video.name);
+    if (url) uploaded.push(url);
     if (thumbnail?.uri && thumbnail.name) {
+      // Important: upload thumbnail AFTER video so attachment order doesn't break media publishing.
       const tUrl = await uploadProposalAttachment(user.id, 'media', thumbnail.uri, thumbnail.name);
       if (tUrl) uploaded.push(tUrl);
     }
-    const url = await uploadProposalAttachment(user.id, 'media', video.uri, video.name);
-    if (url) uploaded.push(url);
     const result = await masterInstantPublish(
       user.id,
       'media',

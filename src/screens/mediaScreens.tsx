@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -904,11 +905,21 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
   const [saved, setSaved] = useState(false);
   const [progress, setProgress] = useState(0.35);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [webFullscreenOpen, setWebFullscreenOpen] = useState(false);
   const videoRef = useRef<Video | null>(null);
   const playbackUrl = paramPlayback || asset?.public_url?.trim() || '';
   const thumb = asset?.thumbnail_url?.trim() || asset?.public_url?.trim() || PLAYER_STILL;
   const isVideo = asset?.kind === 'video' || (!!playbackUrl && !playbackUrl.match(/\.(png|jpe?g|webp|gif)(\?|$)/i));
-  const displayTitle = asset?.title?.trim() || title;
+  const displayTitle = useMemo(() => {
+    const raw = (asset?.title?.trim() || title || '').trim();
+    if (!raw) return 'Media';
+    // If title looks like an uploaded filename, make it human-friendly.
+    if (raw.match(/\.(mp4|mov|m4v|webm)$/i) || raw.match(/^\d{10,}-/)) {
+      const base = raw.replace(/\.(mp4|mov|m4v|webm)$/i, '');
+      return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return raw;
+  }, [asset?.title, title]);
   const displayDesc = asset?.description?.trim() || meta.desc;
   const displayTags =
     Array.isArray(asset?.tags) && asset.tags.length ? asset.tags.join(', ') : null;
@@ -922,6 +933,10 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
     return desc.replace(/\n*Category:\s*[^\n]+\s*/gi, '\n').trim();
   }, [asset?.description, displayDesc]);
   const onFullscreen = useCallback(() => {
+    if (Platform.OS === 'web') {
+      setWebFullscreenOpen(true);
+      return;
+    }
     try {
       void videoRef.current?.presentFullscreenPlayerAsync();
     } catch {
@@ -970,29 +985,27 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
   }, [user?.id, mediaId]);
 
   const goEditMedia = useCallback(() => {
-    if (!asset?.id) {
-      Alert.alert('Media', 'This media item is still loading. Try again in a moment.');
-      return;
-    }
+    const id = asset?.id || (mediaId && !mediaId.startsWith('demo:') ? mediaId : '');
+    if (!id) return;
     try {
-      navigation.navigate('EditMedia', { mediaId: asset.id });
+      navigation.navigate('EditMedia', { mediaId: id });
       return;
     } catch {
       // ignore
     }
     // Fallback for nested navigation contexts
     try {
-      navigation.getParent()?.navigate('Media' as never, { screen: 'EditMedia', params: { mediaId: asset.id } } as never);
+      navigation
+        .getParent()
+        ?.navigate('Media' as never, { screen: 'EditMedia', params: { mediaId: id } } as never);
     } catch {
       Alert.alert('Media', 'Could not open the editor.');
     }
-  }, [asset?.id, navigation]);
+  }, [asset?.id, mediaId, navigation]);
 
   const doDeleteMedia = useCallback(() => {
-    if (!asset?.id) {
-      Alert.alert('Media', 'This media item is still loading. Try again in a moment.');
-      return;
-    }
+    const id = asset?.id || (mediaId && !mediaId.startsWith('demo:') ? mediaId : '');
+    if (!id) return;
     Alert.alert('Delete media?', 'Removes this media for everyone.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -1000,7 +1013,7 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            const ok = await deleteMediaAsset(asset.id);
+            const ok = await deleteMediaAsset(id);
             if (ok) {
               Alert.alert('Deleted', 'This media has been removed.');
               navigation.goBack();
@@ -1011,7 +1024,7 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
         },
       },
     ]);
-  }, [asset?.id, navigation]);
+  }, [asset?.id, mediaId, navigation]);
 
   return (
     <View style={styles.root}>
@@ -1080,6 +1093,33 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
           </Pressable>
         ) : null}
       </View>
+      <Modal visible={webFullscreenOpen} transparent animationType="fade" onRequestClose={() => setWebFullscreenOpen(false)}>
+        <Pressable style={styles.webFullscreenBackdrop} onPress={() => setWebFullscreenOpen(false)}>
+          <Pressable style={styles.webFullscreenSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.webFullscreenTop}>
+              <Text style={styles.webFullscreenTitle} numberOfLines={1}>
+                {displayTitle}
+              </Text>
+              <Pressable style={styles.playerChromeBtn} onPress={() => setWebFullscreenOpen(false)}>
+                <FontAwesome name="times" size={18} color={DS.color.text} />
+              </Pressable>
+            </View>
+            <View style={styles.webFullscreenStage}>
+              {isVideo && playbackUrl ? (
+                <Video
+                  source={{ uri: playbackUrl }}
+                  style={styles.webFullscreenVideo}
+                  resizeMode={ResizeMode.CONTAIN}
+                  useNativeControls
+                  shouldPlay
+                />
+              ) : (
+                <Image source={{ uri: thumb }} style={styles.webFullscreenVideo} />
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <ScrollView
         contentContainerStyle={[styles.padded, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
@@ -1091,7 +1131,7 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
           <Text style={styles.playerDurationLabel}>{meta.duration}</Text>
         </View>
         <Text style={styles.playerTitle}>{displayTitle}</Text>
-        <Text style={styles.muted}>{meta.channelLine}</Text>
+        {!mediaId.startsWith('demo:') ? null : <Text style={styles.muted}>{meta.channelLine}</Text>}
         <Text style={styles.body}>{cleanedDesc}</Text>
         {parsedCategory ? <Text style={styles.muted}>Category: {parsedCategory}</Text> : null}
         {displayTags ? <Text style={styles.muted}>Tags: {displayTags}</Text> : null}
@@ -1275,6 +1315,9 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
   return (
     <View style={styles.root}>
       <View style={[styles.savedHeader, { paddingTop: insets.top + DS.space.md }]}>
+        <Pressable style={styles.savedIconBtn} onPress={() => navigation.navigate('MediaLibrary')} accessibilityLabel="Back to media">
+          <FontAwesome name="arrow-left" size={16} color={DS.color.text} />
+        </Pressable>
         <Text style={styles.savedTitle}>Saved</Text>
         <View style={styles.savedHeaderActions}>
           <Pressable
@@ -1735,10 +1778,13 @@ const styles = StyleSheet.create({
     height: 280,
     backgroundColor: DS.color.black,
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playerImg: {
     width: '100%',
     height: '100%',
+    alignSelf: 'center',
   },
   playerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1813,6 +1859,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(28, 28, 28, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  webFullscreenBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    padding: DS.space.base,
+    justifyContent: 'center',
+  },
+  webFullscreenSheet: {
+    width: '100%',
+    maxWidth: 980,
+    alignSelf: 'center',
+    backgroundColor: DS.color.background,
+    borderRadius: DS.radius.xl,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: DS.color.borderWhite5,
+  },
+  webFullscreenTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: DS.space.base,
+    paddingVertical: DS.space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: DS.color.borderWhite5,
+  },
+  webFullscreenTitle: {
+    flex: 1,
+    marginRight: DS.space.md,
+    color: DS.color.text,
+    fontFamily: DS.font.bodyMedium,
+    fontSize: 14,
+  },
+  webFullscreenStage: {
+    backgroundColor: DS.color.black,
+    width: '100%',
+    aspectRatio: 16 / 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webFullscreenVideo: {
+    width: '100%',
+    height: '100%',
   },
   ctrlRow: {
     flexDirection: 'row',
@@ -2369,6 +2458,8 @@ const styles = StyleSheet.create({
   },
   savedTitle: {
     ...tabRootTitleText,
+    flex: 1,
+    textAlign: 'center',
   },
   savedHeaderActions: {
     flexDirection: 'row',
