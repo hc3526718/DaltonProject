@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Dalton Grant Academy</title>
+    <meta name="description" content="The Dalton Grant Academy — events, sponsors, and media for athletes." />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: radial-gradient(1200px 600px at 20% 10%, rgba(197, 168, 106, 0.18), rgba(10, 10, 10, 0)),
+          #0a0a0a;
+        color: #f4f4f4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .wrap {
+        width: min(920px, calc(100% - 40px));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(18, 18, 18, 0.82);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      }
+      .kicker {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(197, 168, 106, 0.95);
+        margin: 0 0 10px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.05;
+      }
+      p {
+        margin: 0 0 22px;
+        color: rgba(255, 255, 255, 0.74);
+        font-size: 16px;
+        line-height: 1.6;
+        max-width: 62ch;
+      }
+      .row {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .btn {
+        appearance: none;
+        border: 1px solid rgba(197, 168, 106, 0.35);
+        background: rgba(197, 168, 106, 0.18);
+        color: rgba(255, 255, 255, 0.95);
+        padding: 12px 16px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 650;
+      }
+      .btn.primary {
+        background: rgba(197, 168, 106, 0.95);
+        color: #0a0a0a;
+        border-color: rgba(197, 168, 106, 0.95);
+      }
+      .hint {
+        margin-top: 18px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.55);
+      }
+      code {
+        color: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px 6px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="kicker">The Dalton Grant Academy</div>
+      <h1>Built for athletes.</h1>
+      <p>
+        Explore events, training media, and partner offers — all in one place. If you’re a master control account, you can
+        publish and manage content instantly.
+      </p>
+      <div class="row">
+        <a class="btn primary" href="/app">Open the app</a>
+        <a class="btn" href="/app?screen=MediaLibrary">Media</a>
+        <a class="btn" href="/app?screen=UpcomingEvents">Events</a>
+        <a class="btn" href="/app?screen=SponsorListings">Sponsors</a>
+      </div>
+      <div class="hint">App lives at <code>/app</code>. If you bookmarked an older URL, use the button above.</div>
+    </main>
+  </body>
+</html>
+
