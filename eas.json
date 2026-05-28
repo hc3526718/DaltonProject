@@ -1,0 +1,60 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "node": "20.19.4",
+      "env": {
+        "EAS_NO_FROZEN_LOCKFILE": "1",
+        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
+        "TMPDIR": "/tmp",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "cache": {
+        "disabled": true
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "channel": "preview",
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "channel": "production",
+      "autoIncrement": true,
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "image": "sdk-54"
+      },
+      "cache": {
+        "paths": ["./ios/Podfile.lock"]
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
