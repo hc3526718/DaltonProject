@@ -2,11 +2,33 @@
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
+  "installCommand": "npm install && cd ../marketing-ui && npm install",
+  "env": {
+    "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+    "NODE_OPTIONS": "--max-old-space-size=8192"
+  },
   "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/cookie-policy", "destination": "/cookie-policy.html" },
+    { "source": "/cookies", "destination": "/cookie-policy.html" },
+    { "source": "/athlete-agreement", "destination": "/athlete-agreement.html" },
+    { "source": "/help-center", "destination": "/help-center.html" },
+    { "source": "/contact-us", "destination": "/contact-us.html" },
+    { "source": "/live-chat", "destination": "/live-chat.html" },
+    { "source": "/how", "destination": "/how.html" },
+    { "source": "/features", "destination": "/features.html" },
+    { "source": "/impact", "destination": "/impact.html" },
+    { "source": "/demo", "destination": "/app/index.html" },
+    { "source": "/demo/:path*", "destination": "/app/index.html" },
+    { "source": "/app", "destination": "/app/index.html" },
+    { "source": "/app/auth/callback", "destination": "/app/index.html" },
+    { "source": "/app/:path*", "destination": "/app/index.html" }
+  ],
+  "headers": [
     {
-      "source": "/app/(.*)",
-      "destination": "/app/index.html"
+      "source": "/app/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     }
   ]
 }
-
