@@ -132,6 +132,22 @@ type BrandPartnerScreenProps =
   | NativeStackScreenProps<CommunityStackParamList, 'BrandPartner'>
   | NativeStackScreenProps<SponsorsStackParamList, 'BrandPartner'>;
 
+function parseSponsorDescriptionForFeatured(
+  description: string | null,
+): { hook: string; helpsAthletes: string; contactEmail: string } {
+  const desc = (description ?? '').trim();
+  if (!desc) return { hook: '', helpsAthletes: '', contactEmail: '' };
+  const contactMatch = desc.match(/(?:^|\n)Contact:\s*([^\n]+)\s*(?:\n|$)/i);
+  const contactEmail = contactMatch?.[1]?.trim() || '';
+  const helpsMatch = desc.match(/How this helps athletes:\s*\n([\s\S]*)/i);
+  const helpsAthletes = helpsMatch?.[1]?.trim() || '';
+  const hook = desc
+    .split(/\n\nHow this helps athletes:\s*\n/i)[0]
+    ?.replace(/\n*Contact:\s*[^\n]+\s*/gi, '\n')
+    .trim();
+  return { hook: hook || '', helpsAthletes, contactEmail };
+}
+
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -2919,6 +2935,7 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
   const page = offer;
   const insets = useSafeAreaInsets();
   const links = normalizePartnerLinks(page.social_links);
+  const featured = parseSponsorDescriptionForFeatured(page.description ?? null);
   const socialObj =
     page.social_links && typeof page.social_links === 'object' && !Array.isArray(page.social_links)
       ? (page.social_links as {
@@ -2942,6 +2959,45 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
   const videoUri = page.video_url?.trim();
   const siteUri = page.website_url?.trim();
 
+  const goEditSponsor = useCallback(() => {
+    if (!pageId) return;
+    try {
+      // Works when BrandPartner is in Sponsors stack
+      (navigation as any).navigate('EditSponsor', { pageId });
+      return;
+    } catch {
+      // ignore
+    }
+    // Works when BrandPartner is opened from Community stack
+    try {
+      navigation.getParent()?.navigate('Sponsors' as never, { screen: 'EditSponsor', params: { pageId } } as never);
+    } catch {
+      Alert.alert('Sponsor', 'Could not open the editor.');
+    }
+  }, [navigation, pageId]);
+
+  const doDeleteSponsor = useCallback(() => {
+    if (!pageId) return;
+    Alert.alert('Delete sponsor?', 'Removes this partner page for everyone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            const ok = await deleteSubscriptionOfferPage(pageId);
+            if (ok) {
+              Alert.alert('Deleted', 'This sponsor page has been removed.');
+              navigation.goBack();
+            } else {
+              Alert.alert('Could not delete', 'You may not have permission to delete this sponsor page.');
+            }
+          })();
+        },
+      },
+    ]);
+  }, [navigation, pageId]);
+
   return (
     <View style={styles.root}>
       <View style={[styles.brandTopNav, { paddingTop: insets.top + DS.space.sm }]}>
@@ -2955,7 +3011,7 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
             style={styles.brandNavBtn}
             accessibilityLabel="Sponsor options"
           >
-            <FontAwesome name="ellipsis-v" size={18} color={colors.textMuted} />
+            <FontAwesome name="ellipsis-v" size={18} color={colors.text} />
           </Pressable>
         ) : (
           <Pressable
@@ -2980,9 +3036,8 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
             key: 'edit',
             label: 'Edit sponsor',
             onPress: () => {
-              if (!pageId) return;
               setMenuOpen(false);
-              (navigation as any).navigate('EditSponsor', { pageId });
+              goEditSponsor();
             },
           },
           {
@@ -3001,21 +3056,7 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
             destructive: true,
             onPress: () => {
               setMenuOpen(false);
-              if (!pageId) return;
-              Alert.alert('Delete sponsor?', 'Removes this partner page for everyone.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => {
-                    void (async () => {
-                      const ok = await deleteSubscriptionOfferPage(pageId);
-                      if (ok) navigation.goBack();
-                      else Alert.alert('Could not delete', 'Check permissions and try again.');
-                    })();
-                  },
-                },
-              ]);
+              doDeleteSponsor();
             },
           },
         ]}
@@ -3047,10 +3088,52 @@ export function BrandPartnerScreen({ navigation, route }: BrandPartnerScreenProp
             <Text style={styles.brandActiveLabel}>Partner offer</Text>
           </View>
         </View>
-        {page.description?.trim() ? (
+        {featured.hook ? (
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: DS.radius.xl,
+              padding: DS.space.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.borderWhite5,
+              marginBottom: DS.space.md,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: DS.font.bodyMedium,
+                fontSize: 11,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                color: colors.gold,
+                marginBottom: DS.space.sm,
+              }}
+            >
+              Featured offer
+            </Text>
+            <Text style={{ fontFamily: DS.font.heading, fontSize: 20, lineHeight: 28, color: colors.text }}>
+              {featured.hook}
+            </Text>
+          </View>
+        ) : null}
+        {featured.helpsAthletes ? (
           <View style={styles.brandAbout}>
-            <Text style={styles.brandAboutTitle}>About</Text>
-            <Text style={styles.brandAboutBody}>{page.description.trim()}</Text>
+            <Text style={[styles.brandAboutTitle, { fontSize: 20 }]}>How this helps athletes</Text>
+            <Text style={[styles.brandAboutBody, { fontSize: 16, lineHeight: 24 }]}>{featured.helpsAthletes}</Text>
+          </View>
+        ) : page.description?.trim() ? (
+          <View style={styles.brandAbout}>
+            <Text style={[styles.brandAboutTitle, { fontSize: 20 }]}>About</Text>
+            <Text style={[styles.brandAboutBody, { fontSize: 16, lineHeight: 24 }]}>{page.description.trim()}</Text>
+          </View>
+        ) : null}
+        {featured.contactEmail ? (
+          <View style={[styles.brandPromoBlock, { marginTop: DS.space.md }]}>
+            <View style={styles.brandPromoHeadingRow}>
+              <FontAwesome name="envelope" size={12} color={colors.gold} />
+              <Text style={styles.brandPromoHeading}> Contact</Text>
+            </View>
+            <Text style={[styles.brandCodeHint, { fontSize: 14, lineHeight: 20 }]}>{featured.contactEmail}</Text>
           </View>
         ) : null}
         {videoUri ? (

@@ -969,6 +969,50 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
     })();
   }, [user?.id, mediaId]);
 
+  const goEditMedia = useCallback(() => {
+    if (!asset?.id) {
+      Alert.alert('Media', 'This media item is still loading. Try again in a moment.');
+      return;
+    }
+    try {
+      navigation.navigate('EditMedia', { mediaId: asset.id });
+      return;
+    } catch {
+      // ignore
+    }
+    // Fallback for nested navigation contexts
+    try {
+      navigation.getParent()?.navigate('Media' as never, { screen: 'EditMedia', params: { mediaId: asset.id } } as never);
+    } catch {
+      Alert.alert('Media', 'Could not open the editor.');
+    }
+  }, [asset?.id, navigation]);
+
+  const doDeleteMedia = useCallback(() => {
+    if (!asset?.id) {
+      Alert.alert('Media', 'This media item is still loading. Try again in a moment.');
+      return;
+    }
+    Alert.alert('Delete media?', 'Removes this media for everyone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            const ok = await deleteMediaAsset(asset.id);
+            if (ok) {
+              Alert.alert('Deleted', 'This media has been removed.');
+              navigation.goBack();
+            } else {
+              Alert.alert('Could not delete', 'You may not have permission to delete this media.');
+            }
+          })();
+        },
+      },
+    ]);
+  }, [asset?.id, navigation]);
+
   return (
     <View style={styles.root}>
       <View style={[styles.playerTop, { paddingTop: insets.top + DS.space.sm }]}>
@@ -992,9 +1036,8 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
             key: 'edit',
             label: 'Edit media',
             onPress: () => {
-              if (!asset?.id) return;
               setMenuOpen(false);
-              navigation.navigate('EditMedia', { mediaId: asset.id });
+              goEditMedia();
             },
           },
           {
@@ -1007,21 +1050,8 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
             label: 'Delete media',
             destructive: true,
             onPress: () => {
-              if (!asset?.id) return;
-              Alert.alert('Delete media?', 'Removes this media for everyone.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => {
-                    void (async () => {
-                      const ok = await deleteMediaAsset(asset.id);
-                      if (ok) navigation.goBack();
-                      else Alert.alert('Could not delete', 'Check permissions and try again.');
-                    })();
-                  },
-                },
-              ]);
+              setMenuOpen(false);
+              doDeleteMedia();
             },
           },
         ]}
