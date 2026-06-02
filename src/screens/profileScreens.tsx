@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -11,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
@@ -23,7 +25,10 @@ import { AppleHeroButton } from '../components/AppleHeroButton';
 import { HighlightVideoModal } from '../components/HighlightVideoModal';
 import { InterestsEditor } from '../components/InterestsEditor';
 import { uploadHighlightVideo } from '../lib/highlightVideoUpload';
+import { useActionBanner } from '../actionBanner/ActionBannerContext';
 import { BrandLogo } from '../components/BrandLogo';
+import { UploadBlockingOverlay } from '../components/UploadBlockingOverlay';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { DS } from '../designSystem';
 import { isSupabaseConfigured } from '../lib/env';
@@ -34,6 +39,7 @@ import type { ProfileStackParamList } from '../navigation/types';
 import { useSubscription } from '../subscriptions/SubscriptionContext';
 import * as ImagePicker from 'expo-image-picker';
 import { DALTON_LOGO_FINAL_IMG } from '../constants/brandAssets';
+import { capitalizeProfileTag } from '../lib/capitalizeProfileTags';
 import { STRIPE_CUSTOMER_PORTAL_LOGIN_URL } from '../constants/stripePortal';
 import type { ProfileRow } from '../roadmap/types';
 import {
@@ -45,11 +51,14 @@ import {
 import { getFollowCounts } from '../roadmap/followService';
 import { uploadAndSaveProfileImage } from '../lib/profileImageUpload';
 import {
+  highlightTitleFromFileName,
   highlightsToJson,
+  isUploadedHighlightMedia,
   parseProfileHighlights,
   resolveHighlightThumbnailUrl,
   type ProfileHighlight,
 } from '../lib/profileHighlights';
+import { pickLocalImage, pickLocalVideo } from '../lib/pickLocalMedia';
 import {
   checkUsernameAvailable,
   isValidUsernameFormat,
@@ -212,15 +221,17 @@ export function AthleteProfileScreen({ navigation }: PProps<'AthleteProfile'>) {
           ) : null}
         </View>
         {profile?.username?.trim() ? <Text style={styles.profileHandle}>@{profile.username.trim()}</Text> : null}
-        <View style={styles.tagRow}>
-          {primarySport ? (
+        {primarySport ? (
+          <View style={styles.tagRowPrimary}>
             <View style={styles.tagGold}>
               <Text style={styles.tagGoldText}>{primarySport}</Text>
             </View>
-          ) : null}
+          </View>
+        ) : null}
+        <View style={styles.tagRow}>
           {(profile?.sports ?? [])
             .filter((s) => s !== primarySport)
-            .slice(0, 2)
+            .slice(0, 4)
             .map((s) => (
               <View key={s} style={styles.tag}>
                 <Text style={styles.tagText}>{s}</Text>
@@ -228,7 +239,7 @@ export function AthleteProfileScreen({ navigation }: PProps<'AthleteProfile'>) {
             ))}
           {profile?.persona_role?.trim() ? (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{profile.persona_role.trim()}</Text>
+              <Text style={styles.tagText}>{capitalizeProfileTag(profile.persona_role)}</Text>
             </View>
           ) : null}
         </View>
@@ -293,11 +304,14 @@ export function AthleteProfileScreen({ navigation }: PProps<'AthleteProfile'>) {
                 {thumb ? (
                   <Image source={{ uri: thumb }} style={styles.highlightThumb} resizeMode="cover" />
                 ) : (
-                <View style={styles.highlightThumbPlaceholder}>
-                  <Text style={styles.highlightThumbTitle} numberOfLines={3}>
-                    {h.title}
-                  </Text>
-                </View>
+                  <View style={styles.highlightThumbPlaceholder}>
+                    {isUploadedHighlightMedia(h.video_url) ? (
+                      <FontAwesome name="film" size={22} color={DS.color.gold} style={{ marginBottom: 6 }} />
+                    ) : null}
+                    <Text style={styles.highlightThumbTitle} numberOfLines={3}>
+                      {h.title}
+                    </Text>
+                  </View>
                 )}
                 {h.video_url.trim() ? (
                   <View style={styles.highlightPlay}>
@@ -572,7 +586,7 @@ export function SettingsScreen({ navigation }: PProps<'Settings'>) {
                           {
                             text: 'Delete',
                             style: 'destructive',
-                            onPress: (text) => void confirmDelete(text ?? ''),
+                            onPress: (text?: string) => void confirmDelete(text ?? ''),
                           },
                         ],
                         'plain-text',
@@ -620,6 +634,17 @@ const SPORT_OPTIONS = [
 ] as const;
 
 const BIO_MAX = 200;
+
+function sportDedupeKeys(primarySport?: string | null, sports?: string[] | null): Set<string> {
+  const out = new Set<string>();
+  const p = primarySport?.trim();
+  if (p) out.add(p.toLowerCase());
+  for (const s of sports ?? []) {
+    const t = s?.trim();
+    if (t) out.add(t.toLowerCase());
+  }
+  return out;
+}
 
 export function EditBasicScreen({ navigation }: PProps<'EditBasic'>) {
   const insets = useSafeAreaInsets();
@@ -897,19 +922,26 @@ export function EditProfilePhotoScreen({ navigation }: PProps<'EditProfilePhoto'
 
   const pickPhoto = useCallback(async () => {
     if (!user?.id || !live) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to choose a profile photo.');
-      return;
+    let uri: string | undefined;
+    if (Platform.OS === 'web') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow photo library access to choose a profile photo.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+      if (res.canceled || !res.assets[0]?.uri) return;
+      uri = res.assets[0].uri;
+    } else {
+      const picked = await pickLocalImage({ title: 'Profile photo' });
+      if (!picked[0]?.uri) return;
+      uri = picked[0].uri;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.9,
-    });
-    if (res.canceled || !res.assets[0]?.uri) return;
-    const uri = res.assets[0].uri;
     const previousPreview = localPreview ?? avatarUri;
     setLocalPreview(uri);
     setBusy(true);
@@ -1236,7 +1268,7 @@ export function EditProfileSectionsScreen({ navigation }: PProps<'EditProfileSec
       key: 'banner',
       title: 'Banner image',
       sub: 'Optional — header image for your profile',
-      icon: 'picture-o',
+      icon: 'camera',
       status: profile?.banner_url?.trim() ? 'complete' : 'missing',
       onPress: () => navigation.navigate('EditProfileSectionDetail', { slug: 'banner' }),
     },
@@ -1374,6 +1406,9 @@ export function EditProfileSectionDetailScreen({
   const [highlights, setHighlights] = useState<ProfileHighlight[]>([{ title: '', video_url: '' }]);
   const [resultsText, setResultsText] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingHighlight, setUploadingHighlight] = useState(false);
+  const showBanner = useActionBanner();
+  const keyboardInset = useKeyboardInset();
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -1462,20 +1497,28 @@ export function EditProfileSectionDetailScreen({
 
   const pickBannerImage = useCallback(async () => {
     if (!user?.id || !live) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to choose a banner image.');
-      return;
+    let pickedUri: string | undefined;
+    if (Platform.OS === 'web') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow photo library access to choose a banner image.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.9,
+      });
+      if (res.canceled || !res.assets[0]?.uri) return;
+      pickedUri = res.assets[0].uri;
+    } else {
+      const picked = await pickLocalImage({ title: 'Banner image' });
+      if (!picked[0]?.uri) return;
+      pickedUri = picked[0].uri;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 1],
-      quality: 0.9,
-    });
-    if (res.canceled || !res.assets[0]?.uri) return;
     setUploadingImage(true);
-    const uploaded = await uploadAndSaveProfileImage(user.id, res.assets[0].uri, 'banner');
+    const uploaded = await uploadAndSaveProfileImage(user.id, pickedUri, 'banner');
     setUploadingImage(false);
     if (!uploaded.ok) {
       Alert.alert('Upload failed', uploaded.error);
@@ -1485,8 +1528,15 @@ export function EditProfileSectionDetailScreen({
     setToast(true);
   }, [live, user?.id]);
 
+  const scrollBottomPad = 32 + insets.bottom + keyboardInset + (keyboardInset > 0 ? 48 : 0);
+
   return (
     <View style={styles.root}>
+      <UploadBlockingOverlay
+        visible={uploadingHighlight}
+        message="Uploading your highlight"
+        submessage="Please do not leave this page whilst your highlight file is being uploaded."
+      />
       <ScreenHeader title={titles[slug]} onBack={() => navigation.goBack()} largeTitle />
       {toast ? (
         <View style={[styles.editToast, { top: insets.top + 72 }]} pointerEvents="none">
@@ -1494,11 +1544,18 @@ export function EditProfileSectionDetailScreen({
           <Text style={styles.editToastText}> Saved</Text>
         </View>
       ) : null}
-      <ScrollView
-        contentContainerStyle={[styles.padded, { paddingBottom: 32 + insets.bottom }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={insets.top + 56}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView
+            contentContainerStyle={[styles.padded, { paddingBottom: scrollBottomPad }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
         {slug === 'banner' ? (
           <>
             {bannerUrl.trim() ? (
@@ -1545,69 +1602,126 @@ export function EditProfileSectionDetailScreen({
         {slug === 'highlights' ? (
           <>
             <Text style={styles.sectionDetailMuted}>
-              Add a title and paste a video link, or upload a clip from your device.
+              Paste a YouTube link, or upload a clip from your photo library or files.
             </Text>
-            {highlights.map((row, i) => (
-              <View key={`hl-${i}`} style={styles.highlightEditBlock}>
-                <Text style={styles.athleteLabel}>Title</Text>
-                <TextInput
-                  style={styles.input}
-                  value={row.title}
-                  onChangeText={(t) =>
-                    setHighlights((rows) => rows.map((r, j) => (j === i ? { ...r, title: t } : r)))
-                  }
-                  placeholder="National champion 2024"
-                  placeholderTextColor={DS.color.textMuted}
-                />
-                <Text style={[styles.athleteLabel, { marginTop: DS.space.sm }]}>Video URL</Text>
-                <TextInput
-                  style={styles.input}
-                  value={row.video_url}
-                  onChangeText={(t) =>
-                    setHighlights((rows) => rows.map((r, j) => (j === i ? { ...r, video_url: t } : r)))
-                  }
-                  placeholder="https://youtube.com/watch?v=…"
-                  placeholderTextColor={DS.color.textMuted}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-                <Pressable
-                  style={[styles.photoActionRow, { marginTop: DS.space.sm }]}
-                  onPress={() => {
-                    void (async () => {
-                      if (!user?.id) return;
-                      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                      if (!perm.granted) return;
-                      const res = await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ['videos'],
-                        quality: 0.9,
-                      });
-                      if (res.canceled || !res.assets[0]?.uri) return;
-                      const url = await uploadHighlightVideo(user.id, res.assets[0].uri);
-                      if (!url) {
-                        Alert.alert('Upload failed', 'Could not upload this video.');
-                        return;
-                      }
-                      setHighlights((rows) =>
-                        rows.map((r, j) => (j === i ? { ...r, video_url: url } : r)),
-                      );
-                    })();
-                  }}
-                >
-                  <FontAwesome name="video-camera" size={16} color={DS.color.gold} />
-                  <Text style={styles.photoActionLabel}> Upload video file</Text>
-                </Pressable>
-                {highlights.length > 1 ? (
+            {highlights.map((row, i) => {
+              const uploadedClip = isUploadedHighlightMedia(row.video_url);
+              const ytThumb = !uploadedClip
+                ? resolveHighlightThumbnailUrl(row.video_url, row.thumbnail_url)
+                : null;
+              return (
+                <View key={`hl-${i}`} style={styles.highlightEditBlock}>
+                  {uploadedClip ? (
+                    <View style={styles.highlightUploadedCard}>
+                      <View style={styles.highlightUploadedIcon}>
+                        <FontAwesome name="film" size={28} color={DS.color.gold} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.athleteLabel}>Uploaded video</Text>
+                        <Text style={styles.highlightUploadedMeta} numberOfLines={2}>
+                          Saved to your profile — plays in the highlight reel.
+                        </Text>
+                      </View>
+                    </View>
+                  ) : ytThumb ? (
+                    <Image source={{ uri: ytThumb }} style={styles.highlightYtPreview} />
+                  ) : null}
+                  <Text style={styles.athleteLabel}>Title</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={row.title}
+                    onChangeText={(t) =>
+                      setHighlights((rows) => rows.map((r, j) => (j === i ? { ...r, title: t } : r)))
+                    }
+                    placeholder="National champion 2024"
+                    placeholderTextColor={DS.color.textMuted}
+                  />
+                  {!uploadedClip ? (
+                    <>
+                      <Text style={[styles.athleteLabel, { marginTop: DS.space.sm }]}>Video URL</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={row.video_url}
+                        onChangeText={(t) =>
+                          setHighlights((rows) =>
+                            rows.map((r, j) => (j === i ? { ...r, video_url: t } : r)),
+                          )
+                        }
+                        placeholder="https://youtube.com/watch?v=…"
+                        placeholderTextColor={DS.color.textMuted}
+                        autoCapitalize="none"
+                        keyboardType="url"
+                      />
+                    </>
+                  ) : null}
                   <Pressable
-                    style={styles.photoRemoveRow}
-                    onPress={() => setHighlights((rows) => rows.filter((_, j) => j !== i))}
+                    style={[styles.photoActionRow, { marginTop: DS.space.sm }]}
+                    disabled={uploadingHighlight}
+                    onPress={() => {
+                      void (async () => {
+                        if (!user?.id || uploadingHighlight) return;
+                        const picked = await pickLocalVideo({ title: 'Highlight video' });
+                        const file = picked[0];
+                        if (!file) return;
+                        setUploadingHighlight(true);
+                        showBanner(
+                          'Uploading highlight',
+                          'Please do not leave this page whilst your highlight file is being uploaded.',
+                          { durationMs: 120_000 },
+                        );
+                        try {
+                          const result = await uploadHighlightVideo(user.id, file.uri, file.name);
+                          if (!result.ok) {
+                            Alert.alert('Upload failed', result.error);
+                            return;
+                          }
+                          const title = row.title.trim() || highlightTitleFromFileName(file.name);
+                          setHighlights((rows) =>
+                            rows.map((r, j) =>
+                              j === i
+                                ? { ...r, video_url: result.url, title, thumbnail_url: undefined }
+                                : r,
+                            ),
+                          );
+                          showBanner('Highlight uploaded', 'Your video is ready — tap Save to keep it on your profile.');
+                        } finally {
+                          setUploadingHighlight(false);
+                        }
+                      })();
+                    }}
                   >
-                    <FontAwesome name="trash" size={16} color={DS.color.error} />
-                    <Text style={styles.photoRemoveLabel}>Remove highlight</Text>
+                    <FontAwesome name="video-camera" size={16} color={DS.color.gold} />
+                    <Text style={styles.photoActionLabel}>
+                      {uploadedClip ? ' Replace uploaded video' : ' Upload video (library or files)'}
+                    </Text>
                   </Pressable>
-                ) : null}
-              </View>
-            ))}
+                  {uploadedClip ? (
+                    <Pressable
+                      style={styles.photoRemoveRow}
+                      onPress={() =>
+                        setHighlights((rows) =>
+                          rows.map((r, j) =>
+                            j === i ? { ...r, video_url: '', thumbnail_url: undefined } : r,
+                          ),
+                        )
+                      }
+                    >
+                      <FontAwesome name="youtube-play" size={16} color={DS.color.gold} />
+                      <Text style={styles.photoActionLabel}> Use YouTube link instead</Text>
+                    </Pressable>
+                  ) : null}
+                  {highlights.length > 1 ? (
+                    <Pressable
+                      style={styles.photoRemoveRow}
+                      onPress={() => setHighlights((rows) => rows.filter((_, j) => j !== i))}
+                    >
+                      <FontAwesome name="trash" size={16} color={DS.color.error} />
+                      <Text style={styles.photoRemoveLabel}>Remove highlight</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
             {highlights.length < 12 ? (
               <Pressable
                 style={styles.photoActionRow}
@@ -1640,7 +1754,9 @@ export function EditProfileSectionDetailScreen({
         <AppleHeroButton style={styles.saveBtnSpaced} onPress={() => void save()}>
           Save
         </AppleHeroButton>
-      </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -1817,12 +1933,24 @@ const styles = StyleSheet.create({
     color: DS.color.gold,
     textAlign: 'center',
   },
-  tagRow: {
+  tagRowPrimary: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignSelf: 'center',
-    gap: DS.space.md,
     marginTop: DS.space.md,
+    width: '100%',
+    paddingHorizontal: DS.space.lg,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.sm,
+    width: '100%',
+    paddingHorizontal: DS.space.lg,
+    maxWidth: '100%',
   },
   followStatsRow: {
     flexDirection: 'row',
@@ -1982,6 +2110,39 @@ const styles = StyleSheet.create({
     paddingBottom: DS.space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: DS.color.borderHairline,
+  },
+  highlightUploadedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.md,
+    backgroundColor: DS.color.surface,
+    borderRadius: DS.radius.lg,
+    padding: DS.space.md,
+    marginBottom: DS.space.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: DS.color.cardBorder,
+  },
+  highlightUploadedIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.color.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  highlightUploadedMeta: {
+    fontFamily: DS.font.body,
+    fontSize: 13,
+    color: DS.color.textMuted,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  highlightYtPreview: {
+    width: '100%',
+    height: 120,
+    borderRadius: DS.radius.lg,
+    marginBottom: DS.space.md,
+    backgroundColor: DS.color.surfaceAlt,
   },
   highlightPlay: {
     position: 'absolute',

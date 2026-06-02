@@ -17,10 +17,7 @@ import { CommonActions, useFocusEffect, useRoute, type RouteProp } from '@react-
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
+import { saveTicketAsPdf, saveTicketAsPng } from '../lib/ticketExport';
 import { useActionBanner } from '../actionBanner/ActionBannerContext';
 import { useAuth } from '../auth/AuthContext';
 import { signTicketPayload } from '../booking/ticketToken';
@@ -33,6 +30,7 @@ import {
   removeSavedEventKey,
   unifiedEventSlug,
 } from '../lib/eventsStorage';
+import { notifyBookingConfirmationEmail } from '../lib/bookingConfirmationEmail';
 import { isSupabaseConfigured } from '../lib/env';
 import { getSupabase } from '../lib/supabase';
 import { AppLoadingIndicator } from '../components/AppLoadingIndicator';
@@ -57,6 +55,8 @@ import {
   fetchMyEventReview,
   findUserBookingForEvent,
   getEventById,
+  subscribeEventById,
+  invokeNotifyEventAttendees,
   listAllEvents,
   listBookingsWithEventsForUser,
   subscribeBookingByReference,
@@ -68,6 +68,12 @@ import { hasPremiumOrAdminTier } from '../subscriptions/navigateToPremiumPaywall
 import { gatePremiumFeatureAccess } from '../subscriptions/premiumFeatureGate';
 import { openEventCheckoutUrl, startEventStripeCheckout } from '../subscriptions/eventStripeCheckout';
 import { formatEntryPaymentNotice } from '../lib/eventEntryPayment';
+import { EventDetailSections } from '../components/EventDetailSections';
+import {
+  formatEventSpotsLabel,
+  parseEventCapacity,
+  resolveEventPresentation,
+} from '../lib/eventDescriptionParse';
 import { QR_SCAN_ICON } from './HostAttendeeScanScreen';
 import { CreatorEventDetailView } from './CreatorEventDetailView';
 import type { EventRow } from '../roadmap/types';
@@ -82,7 +88,7 @@ const eventCtaLabelStyle = {
 };
 
 type EProps<K extends keyof EventsStackParamList> = NativeStackScreenProps<EventsStackParamList, K>;
-type EventsNavigation = NativeStackNavigationProp<EventsStackParamList>;
+type EventsNavigation = NativeStackNavigationProp<EventsStackParamList, keyof EventsStackParamList>;
 
 const DEFAULT_HERO =
   'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=600&auto=format&fit=crop';
@@ -907,21 +913,26 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
       dateHint: route.params?.dateShort ?? '',
     });
 
+  const reloadDbEvent = useCallback(async () => {
+    if (!supabaseEventId) {
+      setDbEvent(null);
+      return;
+    }
+    const row = await getEventById(supabaseEventId);
+    setDbEvent(row);
+  }, [supabaseEventId]);
+
   useFocusEffect(
     useCallback(() => {
       if (!supabaseEventId) {
         setDbEvent(null);
-        return;
+        return undefined;
       }
-      let alive = true;
-      void (async () => {
-        const row = await getEventById(supabaseEventId);
-        if (alive) setDbEvent(row);
-      })();
-      return () => {
-        alive = false;
-      };
-    }, [supabaseEventId]),
+      void reloadDbEvent();
+      return subscribeEventById(supabaseEventId, () => {
+        void reloadDbEvent();
+      });
+    }, [supabaseEventId, reloadDbEvent]),
   );
 
   useFocusEffect(
@@ -933,6 +944,7 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
           eventStorageKey: storageKeyEarly,
           title: route.params?.title ?? 'Event',
           imageUri: route.params?.imageUri,
+          seenAt: Date.now(),
         });
       })();
       return undefined;
@@ -943,7 +955,9 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
   const displayHero = dbEvent?.hero_image_url?.trim() || heroUri;
   const displaySchedule = dbEvent ? formatEventSchedule(dbEvent) : heroScheduleLine;
   const displayVenue = dbEvent?.venue?.trim() || sub?.trim() || 'Elite Fitness Center';
-  const overviewFromHost = dbEvent?.description?.trim() ?? '';
+  const eventPresentation = dbEvent
+    ? resolveEventPresentation(dbEvent.description, dbEvent.event_details)
+    : null;
   const entryPaymentLine = dbEvent
     ? formatEntryPaymentNotice(
         dbEvent.entry_payment_mode ?? 'none',
@@ -951,6 +965,12 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
         dbEvent.entry_payment_note,
       )
     : null;
+  const eventCapacity = dbEvent
+    ? parseEventCapacity(dbEvent.description, dbEvent.event_details)
+    : null;
+  const registeredCount = dbEvent?.registered_count ?? 0;
+  const spotsLabel = dbEvent ? formatEventSpotsLabel(registeredCount, eventCapacity) : null;
+  const isAttending = Boolean(viewerBooking);
 
   const storageKey = useMemo(
     () =>
@@ -1050,12 +1070,7 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
               message: `${displayTitle} — Dalton Grant Sports`,
             }).catch(() => undefined)
           }
-          onEdit={() =>
-            Alert.alert(
-              'Edit event',
-              'Full in-app editing is coming soon. For urgent changes, contact support via Profile → Settings → Support.',
-            )
-          }
+          onEdit={() => navigation.navigate('EditEvent', { eventId: dbEvent.id })}
           onDelete={() => setDeleteEventConfirmOpen(true)}
         />
         <ConfirmModal
@@ -1113,6 +1128,7 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
                 Alert.alert('Not available', 'Only live events can be edited right now.');
                 return;
               }
+              setMasterMenuOpen(false);
               navigation.navigate('EditEvent', { eventId: supabaseEventId });
             },
           },
@@ -1128,7 +1144,10 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
             key: 'delete',
             label: 'Delete event',
             destructive: true,
-            onPress: () => setDeleteEventConfirmOpen(true),
+            onPress: () => {
+              setMasterMenuOpen(false);
+              setDeleteEventConfirmOpen(true);
+            },
           },
         ]}
       />
@@ -1152,7 +1171,7 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
               </View>
               <View style={styles.detailHeroMetaGroup}>
                 <FontAwesome name="users" size={12} color={DS.color.gold} />
-                <Text style={styles.detailHeroMeta}>8/20 spots</Text>
+                <Text style={styles.detailHeroMeta}>{spotsLabel ?? '—'}</Text>
               </View>
             </View>
           </View>
@@ -1192,24 +1211,9 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
               </View>
             </>
           ) : null}
-          {dbEvent ? (
-            <>
-              {entryPaymentLine ? (
-                <View style={styles.entryPaymentCard}>
-                  <FontAwesome name="info-circle" size={16} color={DS.color.gold} />
-                  <Text style={styles.entryPaymentText}>{entryPaymentLine}</Text>
-                </View>
-              ) : null}
-              <Text style={styles.detailSectionKicker}>OVERVIEW</Text>
-              {overviewFromHost ? (
-                <Text style={styles.detailBody}>{overviewFromHost}</Text>
-              ) : (
-                <Text style={[styles.detailBody, styles.muted]}>
-                  No extra description from the host yet.
-                </Text>
-              )}
-            </>
-          ) : (
+          {dbEvent && eventPresentation ? (
+            <EventDetailSections parsed={eventPresentation} entryPaymentLine={entryPaymentLine} />
+          ) : dbEvent ? null : (
             <>
               <Text style={styles.detailSectionKicker}>OVERVIEW</Text>
               <Text style={styles.detailBody}>
@@ -1315,6 +1319,27 @@ export function EventDetailsScreen({ navigation, route }: EProps<'EventDetails'>
               </Text>
             </AppleHeroButton>
           </>
+        ) : isAttending ? (
+          <AppleHeroButton
+            style={styles.attendingCombinedBtn}
+            onPress={() =>
+              navigation.navigate('BookingConfirm', {
+                reference: viewerBooking!.reference,
+                bookingId: viewerBooking!.bookingId,
+                eventId: viewerBooking!.eventId,
+                title: displayTitle,
+                imageUri: displayHero,
+                recapDate: recapDatePart,
+                recapTime: recapTimePart || displaySchedule,
+                venue: displayVenue,
+                attendeeName: user?.email?.split('@')[0] ?? 'Member',
+                attendeeEmail: user?.email ?? '',
+                fitnessLevel: 'Intermediate',
+              })
+            }
+          >
+            <Text style={styles.attendingCombinedLabel}>Attending</Text>
+          </AppleHeroButton>
         ) : (
           <>
             <AppleHeroButton onPress={goConfirm} style={{ marginBottom: DS.space.sm }}>
@@ -1455,6 +1480,9 @@ export function ConfirmAttendScreen({ navigation, route }: EProps<'ConfirmAttend
       } finally {
         setBookingBusy(false);
       }
+    }
+    if (bookingId) {
+      void notifyBookingConfirmationEmail({ bookingId, reference });
     }
     showBanner(`Signed up · ${title}`, `Reference ${reference}`);
     navigation.navigate('BookingConfirm', {
@@ -1709,7 +1737,9 @@ export function BookingConfirmScreen({ navigation, route }: EProps<'BookingConfi
         setCheckedInAt(v);
         if (v && !checkInBannerSent.current) {
           checkInBannerSent.current = true;
-          showBanner(`Signed in — your attendance for ${evTitle} is confirmed.`);
+          showBanner(`Signed in — your attendance for ${evTitle} is confirmed.`, undefined, {
+            category: 'eventAttendance',
+          });
         }
       })();
       return () => {
@@ -1725,7 +1755,9 @@ export function BookingConfirmScreen({ navigation, route }: EProps<'BookingConfi
         setCheckedInAt(v);
         if (v && !checkInBannerSent.current) {
           checkInBannerSent.current = true;
-          showBanner(`Signed in — your attendance for ${evTitle} is confirmed.`);
+          showBanner(`Signed in — your attendance for ${evTitle} is confirmed.`, undefined, {
+            category: 'eventAttendance',
+          });
         }
       });
     });
@@ -1768,45 +1800,12 @@ export function BookingConfirmScreen({ navigation, route }: EProps<'BookingConfi
   const addCal = () => void shareEventCalendar(evTitle, venue, scheduleForIcs, refCode);
 
   const saveTicketPng = useCallback(async () => {
-    try {
-      await new Promise((r) => setTimeout(r, 100));
-      const uri = await captureRef(ticketShotRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-      });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png' });
-      } else {
-        Alert.alert('Sharing', 'Sharing is not available on this device.');
-      }
-    } catch (e) {
-      Alert.alert('Save ticket', e instanceof Error ? e.message : 'Could not capture the ticket.');
-    }
-  }, []);
+    await saveTicketAsPng(ticketShotRef, refCode);
+  }, [refCode]);
 
   const saveTicketPdf = useCallback(async () => {
-    try {
-      await new Promise((r) => setTimeout(r, 100));
-      const uri = await captureRef(ticketShotRef, {
-        format: 'png',
-        quality: 0.92,
-        result: 'tmpfile',
-      });
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const html = `<html><body style="margin:0;display:flex;justify-content:center;"><img src="data:image/png;base64,${base64}" style="width:100%;max-width:520px" /></body></html>`;
-      const { uri: pdfUri } = await Print.printToFileAsync({ html });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(pdfUri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
-      } else {
-        Alert.alert('Sharing', 'Sharing is not available on this device.');
-      }
-    } catch (e) {
-      Alert.alert('PDF', e instanceof Error ? e.message : 'Could not build a PDF.');
-    }
-  }, []);
+    await saveTicketAsPdf(ticketShotRef, refCode);
+  }, [refCode]);
 
   const qrExportSteps =
     qrToken
@@ -1814,14 +1813,14 @@ export function BookingConfirmScreen({ navigation, route }: EProps<'BookingConfi
           {
             key: 'png',
             title: 'Save ticket as PNG',
-            subtitle: 'Share or save the QR reference image',
+            subtitle: 'Save QR to Photos (mobile) or download as image',
             icon: <FontAwesome name="file-image-o" size={14} color={DS.color.gold} />,
             onPress: () => void saveTicketPng(),
           },
           {
             key: 'pdf',
             title: 'Save ticket as PDF',
-            subtitle: 'Portable archive of your QR strip',
+            subtitle: 'Download or save via the system share sheet',
             icon: <FontAwesome name="file-pdf-o" size={14} color={DS.color.gold} />,
             onPress: () => void saveTicketPdf(),
           },
@@ -2788,6 +2787,17 @@ const styles = StyleSheet.create({
   },
   saveLaterOutlineTextSaved: {
     opacity: 0.95,
+  },
+  attendingCombinedBtn: {
+    minHeight: DS.apple.controlHeight + DS.space.sm + DS.apple.controlHeight,
+    justifyContent: 'center',
+  },
+  attendingCombinedLabel: {
+    fontFamily: DS.font.heading,
+    fontSize: 22,
+    color: DS.color.background,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   masterDeleteEventBtn: {
     marginTop: DS.space.xl,

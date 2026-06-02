@@ -12,10 +12,13 @@ import { AccessibilityProvider } from './src/accessibility/AccessibilityContext'
 import { ActionBannerProvider } from './src/actionBanner/ActionBannerContext';
 import { ActivityBadgeProvider } from './src/activity/ActivityBadgeProvider';
 import { ConversationInAppAlerts } from './src/activity/ConversationInAppAlerts';
+import { EventInAppAlerts } from './src/activity/EventInAppAlerts';
+import { NotificationPushRelay } from './src/activity/NotificationPushRelay';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SubscriptionProvider } from './src/subscriptions/SubscriptionContext';
 import { DS } from './src/designSystem';
 import { BootCircleLoader } from './src/components/BootCircleLoader';
+import { DALTON_BOOT_VIDEO_BG, warmDaltonBootVideoCache } from './src/constants/daltonBootVideo';
 import { appFontSources } from './src/loadAppFonts';
 import WebDemoApp from './src/WebDemoApp';
 
@@ -29,6 +32,7 @@ function NativeShellInner({ fontsReady }: { fontsReady: boolean }) {
   useEffect(() => {
     scheduleNativeSplashFailsafe();
     void configurePushPresentation();
+    warmDaltonBootVideoCache();
   }, []);
 
   useEffect(() => {
@@ -49,10 +53,12 @@ function NativeShellInner({ fontsReady }: { fontsReady: boolean }) {
               <>
                 <AppNavigator />
                 <ConversationInAppAlerts />
+                <EventInAppAlerts />
+                <NotificationPushRelay />
               </>
             ) : (
               <View style={styles.bootLoader}>
-                <BootCircleLoader />
+                <BootCircleLoader size={64} compact />
               </View>
             )}
           </View>
@@ -99,6 +105,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: DS.color.background,
+    backgroundColor: DALTON_BOOT_VIDEO_BG,
   },
 });

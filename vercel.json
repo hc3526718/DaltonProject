@@ -2,7 +2,7 @@
   "framework": null,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
-  "installCommand": "npm install && cd ../marketing-ui && npm install",
+  "installCommand": "npm install",
   "env": {
     "SENTRY_DISABLE_AUTO_UPLOAD": "true",
     "NODE_OPTIONS": "--max-old-space-size=8192"
@@ -15,6 +15,8 @@
     { "source": "/athlete-agreement", "destination": "/athlete-agreement.html" },
     { "source": "/help-center", "destination": "/help-center.html" },
     { "source": "/contact-us", "destination": "/contact-us.html" },
+    { "source": "/contact-team", "destination": "/contact-team.html" },
+    { "source": "/contact-assistant", "destination": "/contact-assistant.html" },
     { "source": "/live-chat", "destination": "/live-chat.html" },
     { "source": "/how", "destination": "/how.html" },
     { "source": "/features", "destination": "/features.html" },

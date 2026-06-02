@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Dalton Grant Academy — Talk to the team</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="shared/theme.css" />
+    <style>
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: radial-gradient(900px 600px at 20% 0%, rgba(200, 168, 75, 0.15), transparent 55%), var(--demo-bg);
+        color: var(--demo-text);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased dalton-marketing">
+    <div id="dalton-staggered-menu"></div>
+    <main class="mx-auto max-w-3xl px-5 pt-20 pb-12">
+      <p class="text-dim text-sm">
+        <a href="contact-us.html" class="text-gold hover:underline">← All contact options</a>
+      </p>
+      <p class="font-bebas text-gold tracking-[0.24em] text-sm mt-4">EMAIL SUPPORT</p>
+      <h1 class="font-bebas text-4xl text-mist mt-2">Talk to the team</h1>
+      <p class="text-dim mt-4 leading-relaxed">
+        Use the form for billing, privacy, safety, account, and general questions. Mention whether you use
+        <strong class="text-mist font-medium">web</strong> or <strong class="text-mist font-medium">iOS</strong> and
+        include the email on your account where it helps. We do not show a public inbox address here — our team usually
+        replies within <strong class="text-mist font-medium">24–48 hours</strong>.
+      </p>
+      <p class="text-dim text-sm mt-3">
+        Best for: payment issues, GDPR requests, moderation reports, verification, and anything that needs a human
+        review.
+      </p>
+
+      <form id="dga-contact-form" class="mt-10 space-y-6 rounded-2xl border border-line bg-panel p-6 md:p-8">
+        <div>
+          <label for="dga-contact-subject" class="block text-mist font-semibold text-sm">Subject</label>
+          <select
+            id="dga-contact-subject"
+            required
+            class="dga-contact-select mt-2 w-full rounded-xl border border-line bg-black text-white px-4 py-3 text-sm outline-none focus:border-gold/45"
+          >
+            <option value="general">General enquiry</option>
+            <option value="billing">Billing</option>
+            <option value="privacy_data">Privacy &amp; data requests</option>
+            <option value="safety">Safety / moderation</option>
+            <option value="account_verification">Account &amp; verification</option>
+            <option value="feedback">Feedback</option>
+            <option value="other">Other (custom subject)</option>
+          </select>
+        </div>
+
+        <div id="dga-contact-subject-custom-wrap" hidden>
+          <label for="dga-contact-subject-custom" class="block text-mist font-semibold text-sm">Custom subject</label>
+          <input
+            id="dga-contact-subject-custom"
+            type="text"
+            maxlength="140"
+            class="mt-2 w-full rounded-xl border border-line bg-[rgba(0,0,0,0.35)] text-mist px-4 py-3 text-sm outline-none focus:border-gold/45"
+            placeholder="Briefly describe your topic"
+          />
+        </div>
+
+        <div>
+          <label for="dga-contact-message" class="block text-mist font-semibold text-sm">Message</label>
+          <textarea
+            id="dga-contact-message"
+            required
+            minlength="10"
+            maxlength="8000"
+            rows="7"
+            class="mt-2 w-full rounded-xl border border-line bg-[rgba(0,0,0,0.35)] text-mist px-4 py-3 text-sm outline-none focus:border-gold/45 resize-y"
+            placeholder="Include your account email, platform (web / iOS), and any relevant details."
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          id="dga-contact-submit"
+          class="w-full rounded-2xl bg-gold text-ink font-semibold py-3.5 text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          Send message
+        </button>
+        <p id="dga-contact-status" class="hidden" role="status" aria-live="polite"></p>
+      </form>
+      <p class="text-dim text-xs mt-10">In the app: Profile → Settings → Support.</p>
+    </main>
+    <script src="/shared/dalton-contact-config.js"></script>
+    <script src="/shared/contact-form.js"></script>
+    <script src="shared/marketing-chrome.js"></script>
+    <script src="shared/site-footer.js"></script>
+  </body>
+</html>

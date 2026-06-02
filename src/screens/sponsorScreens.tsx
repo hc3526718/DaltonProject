@@ -3,7 +3,6 @@ import { useRoute } from '@react-navigation/native';
 import { useActionBanner } from '../actionBanner/ActionBannerContext';
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PullRefreshRiveOverlay } from '../components/PullRefreshRiveOverlay';
 import { AppLoadingIndicator } from '../components/AppLoadingIndicator';
+import { RemoteImage } from '../components/RemoteImage';
 import { DS, tabRootHeaderPadding, tabRootTitleText } from '../designSystem';
 import { useRefreshWithMinimum } from '../hooks/useRefreshWithMinimum';
 import { pullRefreshControl } from '../lib/pullRefreshUi';
@@ -118,7 +118,8 @@ export function SponsorListingsScreen({ navigation }: SProps<'SponsorListings'>)
               ? (s.social_links as { logo_url?: unknown })
               : null;
           const logoUrl = socialObj ? String(socialObj.logo_url ?? '').trim() : '';
-          const thumb = (logoUrl && /^https?:\/\//i.test(logoUrl) ? logoUrl : s.hero_image_url?.trim()) || FALLBACK_SP_IMG;
+          const thumb =
+            (logoUrl && /^https?:\/\//i.test(logoUrl) ? logoUrl : null) || FALLBACK_SP_IMG;
           const sub =
             s.description?.trim().slice(0, 120) ||
             'Official partner — tap for offers and links.';
@@ -128,7 +129,7 @@ export function SponsorListingsScreen({ navigation }: SProps<'SponsorListings'>)
               style={styles.sponsorCard}
               onPress={() => navigation.navigate('BrandPartner', { pageId: s.id })}
             >
-              <Image source={{ uri: thumb }} style={styles.sponsorThumb} />
+              <RemoteImage uri={thumb} fallbackUri={FALLBACK_SP_IMG} style={styles.sponsorThumb} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.sponsorName}>{s.business_name.toUpperCase()}</Text>
                 <Text style={styles.sponsorTier} numberOfLines={3}>

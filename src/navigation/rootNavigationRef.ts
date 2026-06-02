@@ -26,6 +26,31 @@ export function openCommunityMessageThread(conversationId: string): void {
   });
 }
 
+export function openEventDetails(eventId: string): void {
+  const id = eventId.trim();
+  if (!id) return;
+  const nav = rootNavigationRef;
+  const go = (): boolean => {
+    if (!nav.isReady()) return false;
+    nav.navigate(
+      'Main',
+      {
+        screen: 'Events',
+        params: {
+          screen: 'EventDetails',
+          params: { supabaseEventId: id },
+        },
+      } as never,
+    );
+    return true;
+  };
+  if (go()) return;
+  queueMicrotask(() => {
+    if (go()) return;
+    setTimeout(() => void go(), 320);
+  });
+}
+
 export function openCommunityMessagesInbox(): void {
   const nav = rootNavigationRef;
   const go = (): boolean => {

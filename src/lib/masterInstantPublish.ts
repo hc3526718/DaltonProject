@@ -1,10 +1,10 @@
 import { uploadProposalAttachment } from './proposalAttachmentUpload';
+import { buildEventDetailsPayload } from './eventDescriptionParse';
 import { insertCommunityEvent, insertSubscriptionOfferPage } from '../roadmap/liveDataService';
 import { getSupabase } from './supabase';
 import { combineDateAndTime } from './scheduleValidation';
 import type { ProposalKind } from '../roadmap/proposalService';
 import type { EntryPaymentMode } from './eventEntryPayment';
-import { entryPaymentBlockForDescription } from './eventEntryPayment';
 
 type EventPayload = {
   title?: string;
@@ -25,6 +25,7 @@ type SponsorPayload = {
   hook?: string;
   helps_athletes?: string;
   website_url?: string;
+  hero_image_url?: string;
   video_url?: string;
   logo_url?: string;
   gallery_urls?: string[];
@@ -37,6 +38,9 @@ type MediaPayload = {
   pitch?: string;
   category?: string;
   tags?: string[];
+  series_title?: string;
+  series_part?: number;
+  feature_series?: boolean;
 };
 
 export type MasterPublishResult =
@@ -51,25 +55,24 @@ function parseProposedDate(proposedDate?: string): { starts: string; ends: strin
   return { starts: dt.toISOString(), ends: ends.toISOString() };
 }
 
-function buildEventDescription(payload: EventPayload): string {
-  const parts: string[] = [];
-  if (payload.pitch?.trim()) parts.push(payload.pitch.trim());
-  if (payload.level) parts.push('', `Level: ${payload.level}`);
+function buildEventDetailsFromPayload(payload: EventPayload) {
   const agenda = Array.isArray(payload.agenda)
-    ? payload.agenda.filter((a) => a.title?.trim() && a.time?.trim())
+    ? payload.agenda
+        .filter((a) => a.title?.trim() && a.time?.trim())
+        .map((a) => ({ time: a.time.trim(), title: a.title.trim() }))
     : [];
-  if (agenda.length) {
-    parts.push('', 'Agenda:', ...agenda.map((a) => `• ${a.time.trim()} — ${a.title.trim()}`));
-  }
-  const cap = payload.max_attendance;
-  if (cap != null && String(cap).trim() !== '') {
-    parts.push('', `Capacity: ${String(cap).trim()}`);
-  }
-  const mode = payload.entry_payment_mode ?? 'none';
-  parts.push(
-    entryPaymentBlockForDescription(mode, payload.entry_payment_amount, payload.entry_payment_note),
-  );
-  return parts.join('\n').trim() || 'Community event';
+  const capRaw = payload.max_attendance;
+  const cap =
+    capRaw != null && String(capRaw).trim() !== '' ? parseInt(String(capRaw).replace(/\D/g, ''), 10) : 0;
+  return buildEventDetailsPayload({
+    level: payload.level ?? '',
+    capacity: Number.isFinite(cap) && cap > 0 ? cap : 0,
+    tags: '—',
+    bring: '—',
+    duration: '',
+    agenda,
+    faqs: [],
+  });
 }
 
 export async function publishEventFromProposalPayload(
@@ -84,7 +87,8 @@ export async function publishEventFromProposalPayload(
   const mode = payload.entry_payment_mode ?? 'none';
   const row = await insertCommunityEvent({
     title: (payload.title ?? 'Community event').trim(),
-    description: buildEventDescription(payload),
+    description: payload.pitch?.trim() || 'Community event',
+    event_details: buildEventDetailsFromPayload(payload),
     starts_at: schedule.starts,
     ends_at: schedule.ends,
     venue: payload.venue?.trim() || null,
@@ -113,8 +117,9 @@ export async function publishSponsorFromProposalPayload(
     contact ? `Contact: ${contact}` : '',
   ].filter(Boolean);
   const heroUrl =
-    attachmentUrls.find((u) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u)) ??
-    payload.gallery_urls?.[0] ??
+    payload.hero_image_url?.trim() ||
+    attachmentUrls.find((u) => /\.(jpe?g|png|webp|gif|heic)(\?|$)/i.test(u)) ||
+    payload.gallery_urls?.[0] ||
     null;
   const videoUrl =
     payload.video_url?.trim() ||
@@ -157,6 +162,12 @@ export async function publishMediaFromProposalPayload(
   const tags = Array.isArray(payload.tags)
     ? payload.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 12)
     : [];
+  const seriesTitle = payload.series_title?.trim() || null;
+  const seriesPart =
+    payload.series_part != null && Number.isFinite(payload.series_part) && payload.series_part > 0
+      ? Math.floor(payload.series_part)
+      : null;
+  const featureSeries = !!payload.feature_series && !!seriesTitle;
   const tagSuffix =
     Array.isArray(payload.tags) && payload.tags.length
       ? `tags-${payload.tags
@@ -193,10 +204,23 @@ export async function publishMediaFromProposalPayload(
         (msg.includes('title') ||
           msg.includes('description') ||
           msg.includes('tags') ||
-          msg.includes('thumbnail_url'))) ||
+          msg.includes('thumbnail_url') ||
+          msg.includes('series_title') ||
+          msg.includes('featured_series'))) ||
       (msg.toLowerCase().includes('schema cache') &&
-        (msg.includes('title') || msg.includes('description') || msg.includes('tags') || msg.includes('thumbnail_url')))
+        (msg.includes('title') ||
+          msg.includes('description') ||
+          msg.includes('tags') ||
+          msg.includes('thumbnail_url') ||
+          msg.includes('series_title') ||
+          msg.includes('featured_series')))
     );
+  };
+
+  const applyFeaturedSeries = async (assetId: string) => {
+    if (!featureSeries) return;
+    await supabase.from('media_assets').update({ featured_series: false }).eq('featured_series', true);
+    await supabase.from('media_assets').update({ featured_series: true }).eq('id', assetId);
   };
 
   const thumbnailUrl =
@@ -222,6 +246,9 @@ export async function publishMediaFromProposalPayload(
         description: description || null,
         tags,
         thumbnail_url: thumbnailUrl,
+        series_title: seriesTitle,
+        series_part: seriesPart,
+        featured_series: featureSeries,
       } as const;
     const rowNoMeta = {
       owner_id: userId,
@@ -239,6 +266,7 @@ export async function publishMediaFromProposalPayload(
     if (ins.ok) {
       published += 1;
       firstId ??= ins.id;
+      await applyFeaturedSeries(ins.id);
     }
   }
 
@@ -256,6 +284,9 @@ export async function publishMediaFromProposalPayload(
         description: description || null,
         tags,
         thumbnail_url: thumbnailUrl,
+        series_title: seriesTitle,
+        series_part: seriesPart,
+        featured_series: featureSeries,
       } as const;
     const rowNoMeta = {
       owner_id: userId,
@@ -272,6 +303,7 @@ export async function publishMediaFromProposalPayload(
     if (ins.ok) {
       published += 1;
       firstId ??= ins.id;
+      await applyFeaturedSeries(ins.id);
     }
   }
 

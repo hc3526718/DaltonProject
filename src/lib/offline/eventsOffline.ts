@@ -1,4 +1,4 @@
-import type { BookingWithEvent } from '../../roadmap/types';
+import type { BookingWithEvent } from '../../roadmap/liveDataService';
 import { readOfflineCache, writeOfflineCache } from './offlineCache';
 import { OFFLINE_TTL } from './offlinePolicy';
 

@@ -3,12 +3,12 @@ import { BootCircleLoader } from './BootCircleLoader';
 
 type Props = {
   style?: StyleProp<ViewStyle>;
-  /** Diameter of the ring (default 52). Use ~22–28 inside buttons. */
+  /** Loader diameter (gold ring). */
   size?: number;
 };
 
-/** Standard Dalton loading spinner — single ring with gold arc (matches boot screen). */
-export function AppLoadingIndicator({ style, size }: Props) {
+/** Standard Dalton loading indicator — gold single-segment ring. */
+export function AppLoadingIndicator({ style, size = 52 }: Props) {
   return (
     <View style={[styles.wrap, style]}>
       <BootCircleLoader size={size} compact />

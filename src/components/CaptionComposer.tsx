@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -52,35 +52,53 @@ function MentionSuggestions({
   onSelect: (item: MentionCandidate) => void;
 }) {
   const [items, setItems] = useState<MentionCandidate[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (keyword == null) {
       setItems([]);
+      setLoading(false);
       return undefined;
     }
     let alive = true;
-    void searchMentionableUsers(keyword).then((rows) => {
-      if (alive) setItems(rows);
-    });
+    setLoading(true);
+    const timer = setTimeout(() => {
+      void searchMentionableUsers(keyword).then((rows) => {
+        if (!alive) return;
+        setItems(rows);
+        setLoading(false);
+      });
+    }, 180);
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [keyword]);
 
-  if (keyword == null || items.length === 0) return null;
+  if (keyword == null) return null;
+
+  const exact = items.find((i) => i.name.toLowerCase() === keyword.toLowerCase());
 
   return (
     <View style={styles.suggestions}>
-      <FlatList
-        keyboardShouldPersistTaps="always"
-        data={items}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable style={styles.suggestionRow} onPress={() => onSelect(item)}>
-            <Text style={styles.suggestionText}>@{item.name}</Text>
-          </Pressable>
-        )}
-      />
+      {loading ? (
+        <Text style={styles.suggestionHint}>Searching accounts…</Text>
+      ) : items.length === 0 ? (
+        <Text style={styles.suggestionWarn}>No accounts match @{keyword}</Text>
+      ) : (
+        <ScrollView keyboardShouldPersistTaps="always" nestedScrollEnabled style={styles.suggestionList}>
+          {items.map((item) => (
+            <Pressable key={item.id} style={styles.suggestionRow} onPress={() => onSelect(item)}>
+              <Text style={styles.suggestionText}>@{item.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+      {exact ? (
+        <Text style={styles.suggestionOk}>Account found — @{exact.name}</Text>
+      ) : keyword.length > 0 && !loading && items.length > 0 ? (
+        <Text style={styles.suggestionHint}>Tap a name to tag them</Text>
+      ) : null}
     </View>
   );
 }
@@ -180,12 +198,15 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   suggestions: {
-    maxHeight: 160,
+    maxHeight: 200,
     borderRadius: DS.radius.lg,
     backgroundColor: DS.color.surface,
     borderWidth: 1,
     borderColor: DS.color.cardBorder,
     overflow: 'hidden',
+  },
+  suggestionList: {
+    maxHeight: 140,
   },
   suggestionRow: {
     paddingHorizontal: DS.space.base,
@@ -197,6 +218,27 @@ const styles = StyleSheet.create({
     fontFamily: DS.font.bodyMedium,
     fontSize: 15,
     color: DS.color.gold,
+  },
+  suggestionHint: {
+    fontFamily: DS.font.body,
+    fontSize: 13,
+    color: DS.color.textMuted,
+    paddingHorizontal: DS.space.base,
+    paddingVertical: 10,
+  },
+  suggestionWarn: {
+    fontFamily: DS.font.bodyMedium,
+    fontSize: 13,
+    color: '#fca5a5',
+    paddingHorizontal: DS.space.base,
+    paddingVertical: 10,
+  },
+  suggestionOk: {
+    fontFamily: DS.font.bodyMedium,
+    fontSize: 13,
+    color: DS.color.gold,
+    paddingHorizontal: DS.space.base,
+    paddingBottom: 10,
   },
   hashtagTray: {
     borderTopWidth: 1,

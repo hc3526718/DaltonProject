@@ -32,7 +32,7 @@ export function UsernameSetupFields({
   const previewExample = `${previewBase}4829`;
 
   let statusText = '';
-  let statusColor = DS.color.textMuted;
+  let statusColor: string = DS.color.textMuted;
   if (skipped) {
     statusText = `We&apos;ll assign something like ${previewExample} (your first name + four random digits).`;
     statusColor = DS.color.textMuted;

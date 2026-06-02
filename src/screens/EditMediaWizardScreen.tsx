@@ -3,12 +3,13 @@ import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'reac
 import * as DocumentPicker from 'expo-document-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome } from '@expo/vector-icons';
-import { useBeforeRemove, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useWizardBeforeRemove } from '../hooks/useWizardBeforeRemove';
 import { useAuth } from '../auth/AuthContext';
 import { DS } from '../designSystem';
 import { uploadProposalAttachment } from '../lib/proposalAttachmentUpload';
 import type { MediaStackParamList } from '../navigation/types';
-import { getMediaAssetById, updateMediaAsset } from '../roadmap/liveDataService';
+import { getMediaAssetById, setFeaturedMediaSeries, updateMediaAsset } from '../roadmap/liveDataService';
 import type { MediaAssetRow } from '../roadmap/types';
 import { WizardChrome } from './proposals/WizardChrome';
 
@@ -58,6 +59,9 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
 
   const [newVideo, setNewVideo] = useState<{ name: string; uri: string } | null>(null);
   const [newThumb, setNewThumb] = useState<{ name: string; uri: string } | null>(null);
+  const [seriesTitle, setSeriesTitle] = useState('');
+  const [seriesPart, setSeriesPart] = useState('');
+  const [featureSeries, setFeatureSeries] = useState(false);
 
   const initialSnapshot = useRef<string>('');
 
@@ -88,6 +92,9 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
       const tags = Array.isArray(row.tags) ? row.tags : [];
       const cleaned = tags.map((t) => String(t).trim()).filter(Boolean) as any[];
       setSelectedTags(cleaned.filter((t) => (TAGS as readonly string[]).includes(t)) as any);
+      setSeriesTitle(row.series_title?.trim() ?? '');
+      setSeriesPart(row.series_part != null ? String(row.series_part) : '');
+      setFeatureSeries(!!row.featured_series);
       initialSnapshot.current = JSON.stringify({
         title: row.title?.trim() || '',
         pitch: parsed.pitch,
@@ -95,6 +102,9 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
         tags: cleaned.filter((t) => (TAGS as readonly string[]).includes(t)),
         thumb: row.thumbnail_url?.trim() || null,
         url: row.public_url?.trim() || null,
+        seriesTitle: row.series_title?.trim() ?? '',
+        seriesPart: row.series_part != null ? String(row.series_part) : '',
+        featureSeries: !!row.featured_series,
       });
       setLoading(false);
     })();
@@ -112,11 +122,14 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
       tags: selectedTags.slice().sort(),
       thumb: newThumb ? 'changed' : asset.thumbnail_url?.trim() || null,
       url: newVideo ? 'changed' : asset.public_url?.trim() || null,
+      seriesTitle: seriesTitle.trim(),
+      seriesPart: seriesPart.trim(),
+      featureSeries,
     });
     return now !== initialSnapshot.current;
-  }, [asset, category, newThumb, newVideo, pitch, selectedTags, title]);
+  }, [asset, category, featureSeries, newThumb, newVideo, pitch, selectedTags, seriesPart, seriesTitle, title]);
 
-  useBeforeRemove(
+  useWizardBeforeRemove(
     useCallback(
       (e) => {
         if (!dirty || saving) return;
@@ -200,11 +213,15 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
       }
     }
 
+    const partNum = parseInt(seriesPart.trim(), 10);
     const updated = await updateMediaAsset(asset.id, {
       kind: 'video',
       title: title.trim(),
       description: buildDescription(pitch, category),
       tags: selectedTags,
+      series_title: seriesTitle.trim() || null,
+      series_part: seriesTitle.trim() && Number.isFinite(partNum) && partNum > 0 ? partNum : null,
+      featured_series: featureSeries && !!seriesTitle.trim(),
       ...(nextVideoUrl !== undefined ? { public_url: nextVideoUrl } : {}),
       ...(nextThumbUrl !== undefined ? { thumbnail_url: nextThumbUrl } : {}),
     });
@@ -215,6 +232,12 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
       return;
     }
 
+    if (featureSeries && seriesTitle.trim()) {
+      await setFeaturedMediaSeries(seriesTitle.trim());
+    } else if (!featureSeries && asset.featured_series) {
+      await setFeaturedMediaSeries(null);
+    }
+
     initialSnapshot.current = JSON.stringify({
       title: updated.title?.trim() || '',
       pitch: parseCategoryAndPitch(updated.description ?? null).pitch,
@@ -222,6 +245,9 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
       tags: (Array.isArray(updated.tags) ? updated.tags : []).slice().sort(),
       thumb: updated.thumbnail_url?.trim() || null,
       url: updated.public_url?.trim() || null,
+      seriesTitle: updated.series_title?.trim() ?? '',
+      seriesPart: updated.series_part != null ? String(updated.series_part) : '',
+      featureSeries: !!updated.featured_series,
     });
 
     navigation.reset({
@@ -234,7 +260,21 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
         },
       ],
     });
-  }, [asset, category, navigation, newThumb, newVideo, pitch, saving, selectedTags, title, user?.id]);
+  }, [
+    asset,
+    category,
+    featureSeries,
+    navigation,
+    newThumb,
+    newVideo,
+    pitch,
+    saving,
+    selectedTags,
+    seriesPart,
+    seriesTitle,
+    title,
+    user?.id,
+  ]);
 
   const chrome = (
     children: React.ReactNode,
@@ -349,11 +389,51 @@ export function EditMediaWizardScreen({ navigation, route }: Props) {
         </View>
         {selectedTags.length ? <Text style={styles.tagPreview}>Selected: {tagsLine}</Text> : null}
       </>,
-      { nextLabel: 'Review', nextDisabled: selectedTags.length === 0 },
+      { nextLabel: 'Series', nextDisabled: selectedTags.length === 0 },
     );
   }
 
   if (step === 4) {
+    return chrome(
+      <>
+        <Text style={styles.lead}>
+          Optional: group this video in a series (multi-part content). Featured series appears at the top of Media.
+        </Text>
+        <Text style={styles.label}>Series title</Text>
+        <TextInput
+          style={styles.input}
+          value={seriesTitle}
+          onChangeText={setSeriesTitle}
+          placeholder="e.g. The Champion&apos;s Mindset"
+          placeholderTextColor={DS.color.textMuted}
+        />
+        <Text style={styles.label}>Part number</Text>
+        <TextInput
+          style={styles.input}
+          value={seriesPart}
+          onChangeText={setSeriesPart}
+          keyboardType="number-pad"
+          placeholder="1"
+          placeholderTextColor={DS.color.textMuted}
+        />
+        <Pressable
+          style={[styles.featureRow, featureSeries && styles.featureRowOn]}
+          onPress={() => setFeatureSeries((v) => !v)}
+          disabled={!seriesTitle.trim()}
+        >
+          <FontAwesome
+            name={featureSeries ? 'check-square' : 'square-o'}
+            size={18}
+            color={seriesTitle.trim() ? DS.color.gold : DS.color.textMuted}
+          />
+          <Text style={styles.featureRowText}>Feature this series on Media home</Text>
+        </Pressable>
+      </>,
+      { nextLabel: 'Review' },
+    );
+  }
+
+  if (step === 5) {
     return chrome(
       <>
         <Text style={styles.lead}>Preview how this looks to a standard user.</Text>
@@ -464,5 +544,25 @@ const styles = StyleSheet.create({
     borderRadius: DS.radius.md,
   },
   ghostText: { color: DS.color.text, fontFamily: DS.font.bodyBold },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.lg,
+    padding: DS.space.md,
+    borderRadius: DS.radius.md,
+    borderWidth: 1,
+    borderColor: DS.color.borderHairline,
+  },
+  featureRowOn: {
+    borderColor: DS.color.gold,
+    backgroundColor: DS.color.goldTint10,
+  },
+  featureRowText: {
+    flex: 1,
+    fontFamily: DS.font.body,
+    fontSize: 14,
+    color: DS.color.text,
+  },
 });
 

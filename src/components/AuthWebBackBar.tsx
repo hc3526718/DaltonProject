@@ -4,20 +4,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DS } from '../designSystem';
 import { openMarketingLanding } from '../lib/marketingLanding';
 
-/** Web auth stack: return to marketing landing page (/). */
+const HORIZONTAL_INSET = DS.space.lg + DS.space.base;
+
+/** Web auth stack only: return to marketing landing page (/). */
 export function AuthWebBackBar() {
   const insets = useSafeAreaInsets();
   if (Platform.OS !== 'web') return null;
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + DS.space.sm }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + DS.space.md }]}>
       <Pressable
         onPress={openMarketingLanding}
         style={styles.btn}
         accessibilityRole="link"
         accessibilityLabel="Back to home page"
       >
-        <FontAwesome name="arrow-left" size={18} color={DS.color.gold} />
+        <FontAwesome name="arrow-left" size={22} color={DS.color.gold} />
         <Text style={styles.label}>Back to home</Text>
       </Pressable>
     </View>
@@ -26,7 +28,7 @@ export function AuthWebBackBar() {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: DS.space.lg,
+    paddingHorizontal: HORIZONTAL_INSET,
     paddingBottom: DS.space.sm,
   },
   btn: {
@@ -34,10 +36,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: DS.space.sm,
     alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingVertical: DS.space.sm,
+    paddingRight: DS.space.md,
   },
   label: {
     fontFamily: DS.font.bodyMedium,
-    fontSize: 14,
+    fontSize: 17,
     color: DS.color.textMuted,
   },
 });

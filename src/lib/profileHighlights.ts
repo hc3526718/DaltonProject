@@ -48,14 +48,30 @@ export function highlightsToJson(rows: ProfileHighlight[]): ProfileHighlight[] {
     .map((r) => ({
       title: r.title.trim(),
       video_url: r.video_url.trim(),
-      ...(r.thumbnail_url?.trim()
-        ? { thumbnail_url: resolveHighlightThumbnailUrl(r.video_url, r.thumbnail_url) }
-        : r.video_url.trim()
-          ? { thumbnail_url: resolveHighlightThumbnailUrl(r.video_url) }
-          : {}),
+      ...(() => {
+        const explicit = r.thumbnail_url?.trim() ? resolveHighlightThumbnailUrl(r.video_url, r.thumbnail_url) : null;
+        if (explicit) return { thumbnail_url: explicit };
+        if (r.video_url.trim()) {
+          const inferred = resolveHighlightThumbnailUrl(r.video_url);
+          if (inferred) return { thumbnail_url: inferred };
+        }
+        return {};
+      })(),
     }))
     .filter((r) => r.title.length > 0)
     .slice(0, 12);
+}
+
+/** Direct upload (Supabase storage / HTTPS file), not a YouTube link. */
+export function isUploadedHighlightMedia(url: string): boolean {
+  const u = url.trim();
+  if (!u || isYouTubeUrl(u)) return false;
+  return /^https?:\/\//i.test(u);
+}
+
+export function highlightTitleFromFileName(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+  return base || 'Highlight';
 }
 
 export function isPlayableVideoUrl(url: string): boolean {
@@ -83,7 +99,7 @@ export function resolveHighlightThumbnailUrl(url: string, existing?: string | nu
   if (existing?.trim()) return existing.trim();
   const yt = parseYouTubeVideoId(url);
   if (yt) return youTubeThumbnailUrl(yt, 'hq');
-  if (isPlayableVideoUrl(url)) return url;
+  if (isUploadedHighlightMedia(url)) return null;
   return null;
 }
 

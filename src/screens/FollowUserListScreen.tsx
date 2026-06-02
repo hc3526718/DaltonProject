@@ -78,7 +78,7 @@ export function FollowUserListScreen({ navigation, route }: Props) {
           return (
             <Pressable
               style={styles.row}
-              onPress={() => navigation.navigate('PublicProfile', { userId: item.id })}
+              onPress={() => (navigation as any).navigate('PublicProfile', { userId: item.id })}
             >
               <Image source={avatar} style={styles.avatar} />
               <View style={{ flex: 1 }}>

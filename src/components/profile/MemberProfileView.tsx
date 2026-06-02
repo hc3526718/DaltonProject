@@ -13,6 +13,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { AppleHeroButton } from '../AppleHeroButton';
 import { DS } from '../../designSystem';
 import { DALTON_LOGO_FINAL_IMG } from '../../constants/brandAssets';
+import { capitalizeProfileTag } from '../../lib/capitalizeProfileTags';
 import {
   interestsForProfileDisplay,
   PROFILE_EMPTY_BIO,
@@ -131,16 +132,18 @@ export function MemberProfileView({
         <Text style={styles.profileHandle}>@{profile.username.trim()}</Text>
       ) : null}
 
-      {(primarySport || (profile?.sports ?? []).length > 0 || profile?.persona_role?.trim()) ? (
+      {primarySport ? (
+        <View style={styles.tagRowPrimary}>
+          <View style={styles.tagGold}>
+            <Text style={styles.tagGoldText}>{primarySport}</Text>
+          </View>
+        </View>
+      ) : null}
+      {(profile?.sports ?? []).filter((s) => s !== primarySport).length > 0 || profile?.persona_role?.trim() ? (
         <View style={styles.tagRow}>
-          {primarySport ? (
-            <View style={styles.tagGold}>
-              <Text style={styles.tagGoldText}>{primarySport}</Text>
-            </View>
-          ) : null}
           {(profile?.sports ?? [])
             .filter((s) => s !== primarySport)
-            .slice(0, 2)
+            .slice(0, 4)
             .map((s) => (
               <View key={s} style={styles.tag}>
                 <Text style={styles.tagText}>{s}</Text>
@@ -148,7 +151,7 @@ export function MemberProfileView({
             ))}
           {profile?.persona_role?.trim() ? (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{profile.persona_role.trim()}</Text>
+              <Text style={styles.tagText}>{capitalizeProfileTag(profile.persona_role)}</Text>
             </View>
           ) : null}
         </View>
@@ -331,14 +334,24 @@ const styles = StyleSheet.create({
     color: DS.color.gold,
     textAlign: 'center',
   },
+  tagRowPrimary: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: DS.space.md,
+    width: '100%',
+    paddingHorizontal: DS.space.lg,
+  },
   tagRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignSelf: 'center',
     flexWrap: 'wrap',
-    gap: DS.space.md,
-    marginTop: DS.space.md,
-    paddingHorizontal: DS.space.sm,
+    gap: DS.space.sm,
+    marginTop: DS.space.sm,
+    width: '100%',
+    maxWidth: '100%',
+    paddingHorizontal: DS.space.lg,
   },
   tag: {
     paddingHorizontal: DS.space.base,

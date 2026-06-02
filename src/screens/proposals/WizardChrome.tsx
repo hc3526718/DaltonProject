@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DS } from '../../designSystem';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 
 type Props = {
   title: string;
@@ -31,7 +32,9 @@ export function WizardChrome(props: Props) {
   const validationError = props.errorMessage ?? null;
 
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset();
   const progress = Math.min(1, step / totalSteps);
+  const scrollBottomPad = DS.space.lg + keyboardInset + (keyboardInset > 0 ? 48 : 0);
 
   return (
     <View style={styles.root}>
@@ -52,14 +55,17 @@ export function WizardChrome(props: Props) {
           <Text style={styles.errorBannerText}>{validationError}</Text>
         </View>
       ) : null}
-      <ScrollView
-        style={styles.bodyScroll}
-        contentContainerStyle={styles.bodyContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView
+          style={styles.bodyScroll}
+          contentContainerStyle={[styles.bodyContent, { paddingBottom: scrollBottomPad }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </TouchableWithoutFeedback>
       {onNext ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + DS.space.md }]}>
           <Pressable

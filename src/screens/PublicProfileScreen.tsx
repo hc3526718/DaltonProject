@@ -100,26 +100,23 @@ export function PublicProfileScreen({ navigation, route }: Props) {
       Alert.alert('Cannot message', gate.message);
       return;
     }
-    const parent = navigation.getParent();
+    const parent = navigation.getParent() as unknown as { navigate: (...args: any[]) => void } | undefined;
     if (parent) {
-      parent.navigate(
-        'Community' as never,
-        {
-          screen: 'MessageThread',
-          params: {
-            peerUserId: userId,
-            name: messageDisplayName,
-            avatarUrl: profile?.avatar_url?.trim() || undefined,
-          },
-        } as never,
-      );
+      parent.navigate('Community', {
+        screen: 'MessageThread',
+        params: {
+          peerUserId: userId,
+          name: messageDisplayName,
+          avatarUrl: profile?.avatar_url?.trim() || undefined,
+        },
+      });
       return;
     }
-    navigation.navigate('MessageThread' as never, {
+    (navigation as any).navigate('MessageThread', {
       peerUserId: userId,
       name: messageDisplayName,
       avatarUrl: profile?.avatar_url?.trim() || undefined,
-    } as never);
+    });
   };
 
   const toggleFollow = async () => {
@@ -178,10 +175,10 @@ export function PublicProfileScreen({ navigation, route }: Props) {
               if (bannerSource) setBannerZoomOpen(true);
             }}
             onFollowersPress={() =>
-              navigation.navigate('FollowUserList', { userId, mode: 'followers' })
+              (navigation as any).navigate('FollowUserList', { userId, mode: 'followers' })
             }
             onFollowingPress={() =>
-              navigation.navigate('FollowUserList', { userId, mode: 'following' })
+              (navigation as any).navigate('FollowUserList', { userId, mode: 'following' })
             }
             canFollow={canFollow}
             following={following}

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { pickLocalComposerMedia } from '../../lib/pickLocalMedia';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
@@ -33,6 +34,7 @@ import {
 import { getSupabase } from '../../lib/supabase';
 import { isSupabaseConfigured } from '../../lib/env';
 import { canSubmitCommunityPost } from '../../roadmap/communityPolicy';
+import { normalizePostBodyForStorage, validateMentionsInText } from '../../lib/postMentions';
 import { insertCommunityPost, listAllEvents } from '../../roadmap/liveDataService';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { WizardChrome } from '../proposals/WizardChrome';
@@ -67,27 +69,43 @@ export function CreateCommunityPostWizard({ navigation }: Props) {
   }, [liveMode]);
 
   const openPicker = useCallback(async () => {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS === 'web') {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) return;
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        quality: 0.92,
+        videoMaxDuration: Math.floor(MAX_COMPOSER_VIDEO_MS / 1000),
+        selectionLimit: MAX_COMPOSER_IMAGES + MAX_COMPOSER_VIDEOS,
+      });
+      if (res.canceled) return;
+      const next: ComposerMedia[] = [];
+      for (const a of res.assets) {
+        const uri = a.uri;
+        if (pickerAssetIsVideo(a)) {
+          const durMs = pickerVideoDurationMs(a) ?? MAX_COMPOSER_VIDEO_MS;
+          if (durMs > MAX_COMPOSER_VIDEO_MS) continue;
+          next.push({ kind: 'video', uri, durationMs: durMs, mimeType: a.mimeType ?? undefined });
+        } else if (uri) {
+          next.push({ kind: 'image', uri, mimeType: a.mimeType ?? undefined });
+        }
+      }
+      setMedia((prev) => clampComposerMedia([...prev, ...next]));
+      return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsMultipleSelection: true,
-      quality: 0.92,
-      videoMaxDuration: Math.floor(MAX_COMPOSER_VIDEO_MS / 1000),
-      selectionLimit: MAX_COMPOSER_IMAGES + MAX_COMPOSER_VIDEOS,
-    });
-    if (res.canceled) return;
+    const picked = await pickLocalComposerMedia({ title: 'Post photos or video' });
+    if (!picked.length) return;
     const next: ComposerMedia[] = [];
-    for (const a of res.assets) {
-      const uri = a.uri;
-      if (pickerAssetIsVideo(a)) {
-        const durMs = pickerVideoDurationMs(a) ?? MAX_COMPOSER_VIDEO_MS;
-        if (durMs > MAX_COMPOSER_VIDEO_MS) continue;
-        next.push({ kind: 'video', uri, durationMs: durMs, mimeType: a.mimeType ?? undefined });
-      } else if (uri) {
-        next.push({ kind: 'image', uri, mimeType: a.mimeType ?? undefined });
+    for (const f of picked) {
+      if (f.kind === 'video') {
+        next.push({
+          kind: 'video',
+          uri: f.uri,
+          durationMs: MAX_COMPOSER_VIDEO_MS,
+        });
+      } else {
+        next.push({ kind: 'image', uri: f.uri });
       }
     }
     setMedia((prev) => clampComposerMedia([...prev, ...next]));
@@ -127,8 +145,14 @@ export function CreateCommunityPostWizard({ navigation }: Props) {
     setBusy(true);
     setError(null);
     try {
+      const mentionErr = await validateMentionsInText(captionPlain);
+      if (mentionErr) {
+        setError(mentionErr);
+        return;
+      }
       const eventTag = eventId ? `\n\n#event:${eventId}` : '';
-      const created = await insertCommunityPost(user.id, `${captionPlain.trim()}${eventTag}`);
+      const bodyStored = normalizePostBodyForStorage(captionPlain.trim());
+      const created = await insertCommunityPost(user.id, `${bodyStored}${eventTag}`);
       if ('error' in created) {
         setError(created.error);
         return;
@@ -140,25 +164,26 @@ export function CreateCommunityPostWizard({ navigation }: Props) {
         for (let i = 0; i < picks.length; i++) {
           const m = picks[i]!;
           try {
-            const { uriToBlob } = await import('../../lib/uriToBlob');
+            const { uploadLocalUriToStorage } = await import('../../lib/uploadLocalFile');
             const contentType = m.mimeType ?? inferContentType(m.kind, m.uri);
-            const blob = await uriToBlob(m.uri, contentType);
             const ext = inferExt(m.kind, m.uri);
             const storage_path = `posts/${user.id}/${row.id}/${Date.now()}-${i}.${ext}`;
-            const up = await supabase.storage.from('media_assets').upload(storage_path, blob, {
+            const up = await uploadLocalUriToStorage(
+              supabase,
+              'media_assets',
+              storage_path,
+              m.uri,
               contentType,
-              upsert: false,
-            });
-            if (up.error) {
-              uploadErrors.push(up.error.message);
+            );
+            if (!up.ok) {
+              uploadErrors.push(up.error);
               continue;
             }
-            const pub = supabase.storage.from('media_assets').getPublicUrl(storage_path);
             const { error: insErr } = await supabase.from('media_assets').insert({
               owner_id: user.id,
               kind: m.kind,
               storage_path,
-              public_url: pub.data.publicUrl ?? null,
+              public_url: up.publicUrl,
               mime_type: contentType,
               visibility: 'public',
               post_id: row.id,

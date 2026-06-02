@@ -36,6 +36,13 @@ function buildPlugins() {
     'expo-web-browser',
     'expo-apple-authentication',
     [
+      'expo-notifications',
+      {
+        icon: './assets/dalton_logo_final_img-icons/Android/mipmap-xxxhdpi/ic_launcher_foreground.png',
+        color: '#C8A84B',
+      },
+    ],
+    [
       'expo-camera',
       {
         cameraPermission: 'Allow The Dalton Grant Academy to use your camera for event QR scanning.',
@@ -46,6 +53,15 @@ function buildPlugins() {
       {
         photosPermission: 'Allow The Dalton Grant Academy to access your photos and videos for uploads.',
         cameraPermission: 'Allow The Dalton Grant Academy to use your camera for uploads.',
+      },
+    ],
+    [
+      'expo-media-library',
+      {
+        photosPermission: 'Allow The Dalton Grant Academy to save event ticket QR codes to your photo library.',
+        savePhotosPermission:
+          'Allow The Dalton Grant Academy to add ticket images to your Photos / gallery.',
+        isAccessMediaLocationEnabled: false,
       },
     ],
     [
@@ -84,7 +100,7 @@ const baseExpo = {
   name: 'The Dalton Grant Academy',
   slug: 'dalton-demo',
   scheme: 'dalton-demo',
-  version: '1.0.0',
+  version: '1.0.1',
   orientation: 'portrait',
   icon: ICON_1024,
   userInterfaceStyle: 'dark',
@@ -109,7 +125,12 @@ const baseExpo = {
       usesNonExemptEncryption: false,
     },
     infoPlist: {
+      CFBundleDisplayName: 'The Dalton Grant Academy',
       ITSAppUsesNonExemptEncryption: false,
+      NSPhotoLibraryAddUsageDescription:
+        'The Dalton Grant Academy saves your event ticket QR code to your photo library when you choose Save ticket as PNG.',
+      NSPhotoLibraryUsageDescription:
+        'The Dalton Grant Academy saves your event ticket QR code to your photo library when you choose Save ticket as PNG.',
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: false,
         NSExceptionDomains: {

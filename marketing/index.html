@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Dalton Grant Academy — Train. Connect. Get Discovered.</title>
+  <meta name="description" content="The Dalton Grant Academy helps athletes train with intention, connect with the right people, and unlock opportunities—on iOS and web." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/site-transition.css">
+  <link rel="preload" href="/VideoP.mp4" as="video" type="video/mp4" data-ga-video-preload="1">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#0A0A0A',
+            gold: '#C8A84B',
+            mist: '#D4D0C8',
+            dim: '#9A9690',
+            line: 'rgba(255,255,255,0.09)',
+            panel: 'rgba(255,255,255,0.04)',
+            panel2: 'rgba(255,255,255,0.03)',
+          },
+          fontFamily: {
+            bebas: ['"Bebas Neue"', 'sans-serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background:
+        radial-gradient(1200px 860px at 18% -12%, rgba(200, 168, 75, 0.22), transparent 58%),
+        radial-gradient(900px 720px at 105% 18%, rgba(212, 208, 200, 0.10), transparent 55%),
+        var(--demo-bg);
+      color: var(--demo-text);
+    }
+    .grain {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      opacity: 0.08;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+      background-size: 260px 260px;
+    }
+    #dalton-staggered-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      pointer-events: none;
+    }
+    #dalton-card-swap {
+      width: 100%;
+      min-height: 520px;
+      overflow: hidden;
+    }
+    @media (min-width: 1024px) {
+      #dalton-card-swap { min-height: 580px; }
+    }
+    /* Visible before React marketing bundle mounts */
+    .dalton-header-fallback {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 55;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.35rem max(1.5rem, env(safe-area-inset-left, 0px)) 1.35rem max(1.5rem, env(safe-area-inset-right, 0px));
+      pointer-events: none;
+    }
+    .dalton-header-fallback > * {
+      pointer-events: auto;
+    }
+    .dalton-header-fallback__logo {
+      justify-self: center;
+    }
+    .dalton-header-fallback__logo img {
+      height: 100px;
+      width: auto;
+      max-width: min(275px, 52vw);
+      object-fit: contain;
+    }
+    .dalton-header-fallback__end {
+      justify-self: end;
+    }
+    body:has(#dalton-staggered-menu .staggered-menu-wrapper) .dalton-header-fallback {
+      display: none;
+    }
+    .dalton-menu-fallback {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 0.55rem;
+      border-radius: 0.85rem;
+      border: none;
+      background: transparent;
+      color: #d4d0c8;
+      cursor: pointer;
+      box-shadow: none;
+      overflow: visible;
+    }
+    .dalton-menu-fallback__icon {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 5px;
+      width: 20px;
+      overflow: visible;
+    }
+    .dalton-menu-fallback__icon span {
+      display: block;
+      height: 2px;
+      border-radius: 2px;
+      background: #d4d0c8;
+    }
+    .landing-auth-fallback {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 0.85rem;
+    }
+    .landing-auth-fallback--cta {
+      padding: 0.55rem 1rem;
+      background: #c8a84b;
+      color: #0a0a0a;
+      white-space: nowrap;
+    }
+    .landing-auth-fallback--profile {
+      padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+      border: 1px solid rgba(200, 168, 75, 0.4);
+      background: rgba(255, 255, 255, 0.06);
+      color: #d4d0c8;
+    }
+    .landing-auth-fallback__avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      object-fit: cover;
+      border: 2px solid rgba(200, 168, 75, 0.55);
+    }
+    @media (max-width: 640px) {
+      .landing-auth-fallback--cta {
+        display: none !important;
+      }
+    }
+    .dalton-screenshot-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+      min-height: 480px;
+    }
+    .dalton-screenshot-fallback img {
+      display: block;
+      border-radius: 1rem;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+      object-fit: contain;
+      height: auto;
+    }
+    .dalton-screenshot-fallback img:nth-child(1),
+    .dalton-screenshot-fallback img:nth-child(3) {
+      width: min(200px, 28vw);
+      max-height: 380px;
+      opacity: 0.72;
+      filter: blur(1px) brightness(0.58);
+      transform: scale(0.82) rotate(-4deg);
+    }
+    .dalton-screenshot-fallback img:nth-child(2) {
+      width: min(340px, 48vw);
+      max-height: 520px;
+      z-index: 2;
+    }
+    #dalton-card-swap:has(.screenshot-carousel) .dalton-screenshot-fallback {
+      display: none;
+    }
+
+    /* New carousel (vanilla, no React mount) */
+    /* Showcase frames match source screenshots 1320×2868 (~0.46:1 portrait) */
+    .dga-carousel {
+      position: relative;
+      width: 100%;
+      max-width: min(460px, 88vw);
+      margin: 0 auto;
+      display: grid;
+      gap: 0.85rem;
+      justify-items: center;
+    }
+    @media (min-width: 1024px) {
+      .dga-carousel {
+        margin-left: auto;
+        margin-right: auto;
+        transform: translateX(-2.5%);
+      }
+    }
+    .dga-carousel__stage {
+      position: relative;
+      width: min(280px, 72vw);
+      aspect-ratio: 1320 / 2868;
+      max-height: min(72vh, 620px);
+      perspective: 1200px;
+      overflow: visible;
+    }
+    .dga-slide {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(240px, 66vw);
+      aspect-ratio: 1320 / 2868;
+      max-height: min(72vh, 620px);
+      border-radius: 1.2rem;
+      overflow: hidden;
+      transform-origin: center center;
+      will-change: transform, opacity, filter;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 520ms ease,
+        filter 520ms ease;
+      opacity: 0;
+      filter: blur(6px) brightness(0.52);
+      transform: translate(-50%, -50%) translateX(0px) scale(0.88) rotateZ(0deg);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .dga-slide img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1320 / 2868;
+      object-fit: cover;
+      background: transparent;
+      will-change: transform;
+      transition: transform 0.12s ease-out;
+    }
+    .dga-carousel__stage--parallax {
+      will-change: transform;
+      transition: transform 0.15s ease-out;
+    }
+    .dga-slide[data-pos="active"] {
+      opacity: 1;
+      filter: blur(0px) brightness(1);
+      transform: translate(-50%, -50%) translateX(0px) scale(1) rotateZ(0deg);
+      box-shadow: 0 28px 64px rgba(0, 0, 0, 0.68), 0 0 0 1px rgba(200, 168, 75, 0.22);
+      z-index: 30 !important;
+      pointer-events: auto;
+    }
+    .dga-slide[data-pos="left"] {
+      opacity: 0.78;
+      filter: blur(1px) brightness(0.62);
+      transform: translate(-50%, -50%) translateX(-112px) scale(0.84) rotateZ(-4deg);
+      z-index: 5 !important;
+    }
+    .dga-slide[data-pos="right"] {
+      opacity: 0.78;
+      filter: blur(1px) brightness(0.62);
+      transform: translate(-50%, -50%) translateX(112px) scale(0.84) rotateZ(4deg);
+      z-index: 5 !important;
+    }
+    .dga-slide[data-pos="hidden"] {
+      opacity: 0;
+      filter: blur(10px) brightness(0.45);
+      transform: translate(-50%, -50%) translateX(0px) scale(0.78);
+      z-index: 0 !important;
+    }
+
+    .dga-carousel__nav {
+      display: grid;
+      grid-auto-flow: column;
+      align-items: center;
+      gap: 0.75rem;
+      justify-content: center;
+      width: 100%;
+      max-width: 520px;
+    }
+    .dga-nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: #d4d0c8;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    }
+    .dga-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(200, 168, 75, 0.28);
+    }
+    .dga-dots {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 6px;
+    }
+    .dga-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+    .dga-dot[aria-current="true"] {
+      background: #c8a84b;
+      border-color: rgba(200, 168, 75, 0.85);
+      transform: scale(1.12);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dga-slide {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased dalton-marketing">
+  <div class="grain"></div>
+  <header class="dalton-header-fallback" id="dalton-header-fallback" aria-label="Site navigation">
+    <button type="button" class="dalton-menu-fallback" aria-label="Open menu">
+      <span class="dalton-menu-fallback__icon" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+    <a href="/" class="dalton-header-fallback__logo">
+      <img src="/showcase/dalton_logo.png" alt="The Dalton Grant Academy" width="275" height="100" />
+    </a>
+    <div class="dalton-header-fallback__end" id="dalton-auth-fallback">
+      <a href="/app" class="landing-auth-fallback landing-auth-fallback--cta">Log in / Sign up</a>
+    </div>
+  </header>
+  <div id="dalton-staggered-menu" aria-hidden="false"></div>
+
+  <main>
+    <section class="mx-auto max-w-6xl px-5 pt-6 md:px-8 md:pt-8 pb-12 md:pb-14">
+      <div class="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+        <div class="lg:col-span-6">
+          <p class="font-bebas text-gold tracking-[0.26em] text-sm">TRAIN · CONNECT · GET DISCOVERED</p>
+          <h1 class="font-bebas text-mist tracking-wide text-5xl md:text-6xl lg:text-7xl leading-[0.92] mt-3">
+            A social sports network built to move your career forward.
+          </h1>
+          <p class="text-dim mt-5 max-w-xl leading-relaxed">
+            Turn training into momentum. Build your circle, get seen by the right people, and unlock real opportunities — with one account across iOS and web.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-3 mt-7">
+            <a href="/app" class="px-6 py-3.5 rounded-2xl bg-gold text-ink font-semibold text-sm text-center hover:opacity-90 transition-opacity">Login</a>
+            <a href="/help-center" class="px-6 py-3.5 rounded-2xl border border-line bg-panel2 text-mist font-semibold text-sm text-center hover:bg-white/[0.05] transition-colors">Help centre</a>
+          </div>
+          <div class="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-xl">
+            <div class="rounded-2xl border border-line bg-panel2 p-4">
+              <p class="font-bebas text-gold tracking-[0.22em] text-xs">COMMUNITY</p>
+              <p class="text-mist font-semibold text-sm mt-1">Feed & DMs</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-panel2 p-4">
+              <p class="font-bebas text-gold tracking-[0.22em] text-xs">EVENTS</p>
+              <p class="text-mist font-semibold text-sm mt-1">Book & host</p>
+            </div>
+            <div class="rounded-2xl border border-line bg-panel2 p-4 col-span-2 sm:col-span-1">
+              <p class="font-bebas text-gold tracking-[0.22em] text-xs">PREMIUM</p>
+              <p class="text-mist font-semibold text-sm mt-1">One sub, all devices</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 flex flex-col items-center lg:items-end w-full">
+          <!-- Note: we intentionally do NOT use id=dalton-card-swap here; the React marketing bundle
+               was causing a broken carousel transition. This vanilla carousel is stable and supports navigation. -->
+          <div class="dga-carousel w-full">
+            <div class="dga-carousel__stage" id="dga-carousel" aria-label="App showcase screenshots carousel">
+              <div class="dga-slide" data-idx="0"><img src="/showcase/01.png" alt="The Dalton Grant Academy app — Community feed" /></div>
+              <div class="dga-slide" data-idx="1"><img src="/showcase/02.png" alt="The Dalton Grant Academy app — Events and bookings" /></div>
+              <div class="dga-slide" data-idx="2"><img src="/showcase/03.png" alt="The Dalton Grant Academy app — Media library" /></div>
+              <div class="dga-slide" data-idx="3"><img src="/showcase/04.png" alt="The Dalton Grant Academy app — Athlete profile" /></div>
+              <div class="dga-slide" data-idx="4"><img src="/showcase/05.png" alt="The Dalton Grant Academy app — Messages and notifications" /></div>
+            </div>
+            <div class="dga-carousel__nav" aria-label="Showcase navigation">
+              <button type="button" class="dga-nav-btn" id="dga-prev" aria-label="Previous screenshot">←</button>
+              <div class="dga-dots" id="dga-dots" aria-label="Choose a screenshot"></div>
+              <button type="button" class="dga-nav-btn" id="dga-next" aria-label="Next screenshot">→</button>
+            </div>
+
+            <noscript>
+              <div class="dalton-screenshot-fallback" aria-hidden="true">
+                <img src="/showcase/05.png" alt="" />
+                <img src="/showcase/01.png" alt="The Dalton Grant Academy app preview" />
+                <img src="/showcase/02.png" alt="" />
+              </div>
+            </noscript>
+          </div>
+
+          <div id="dalton-card-swap" class="w-full max-w-[620px] hidden" aria-hidden="true">
+            <div class="dalton-screenshot-fallback" aria-hidden="true">
+              <img src="/showcase/05.png" alt="" />
+              <img src="/showcase/01.png" alt="The Dalton Grant Academy app preview" />
+              <img src="/showcase/02.png" alt="" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-6xl px-5 pb-14">
+      <div class="grid md:grid-cols-3 gap-4">
+        <a href="/help-center" class="rounded-[2rem] border border-line bg-panel2 p-6 hover:bg-white/[0.05] transition-colors">
+          <p class="font-bebas text-gold tracking-[0.22em] text-xs">HELP</p>
+          <p class="text-mist font-semibold mt-2">Guides & FAQs</p>
+          <p class="text-dim text-sm mt-2">Search topics: premium, events, verification.</p>
+        </a>
+        <a href="/contact-us" class="rounded-[2rem] border border-line bg-panel2 p-6 hover:bg-white/[0.05] transition-colors">
+          <p class="font-bebas text-gold tracking-[0.22em] text-xs">CONTACT</p>
+          <p class="text-mist font-semibold mt-2">Human support</p>
+          <p class="text-dim text-sm mt-2">Billing, safety, and account requests.</p>
+        </a>
+        <div class="rounded-[2rem] border border-line bg-panel2 p-6">
+          <p class="font-bebas text-gold tracking-[0.22em] text-xs">ASSISTANT</p>
+          <p class="text-mist font-semibold mt-2">AI help</p>
+          <p class="text-dim text-sm mt-2">Use the chat control in the corner on this site for instant answers; escalate via Contact if needed.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="shared/landing-auth.js"></script>
+  <script src="shared/marketing-chrome.js"></script>
+  <script src="shared/site-transition.js"></script>
+  <script>
+    (function initDgaCarousel() {
+      var stage = document.getElementById('dga-carousel');
+      if (!stage) return;
+      var slides = Array.prototype.slice.call(stage.querySelectorAll('.dga-slide'));
+      if (!slides.length) return;
+
+      var dotsWrap = document.getElementById('dga-dots');
+      var btnPrev = document.getElementById('dga-prev');
+      var btnNext = document.getElementById('dga-next');
+
+      var idx = 0;
+      var timer = null;
+      var intervalMs = 5000;
+
+      function clampIndex(n) {
+        var len = slides.length;
+        return ((n % len) + len) % len;
+      }
+
+      function renderDots() {
+        if (!dotsWrap) return;
+        dotsWrap.innerHTML = '';
+        for (var i = 0; i < slides.length; i++) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'dga-dot';
+          b.setAttribute('aria-label', 'Show screenshot ' + (i + 1) + ' of ' + slides.length);
+          if (i === idx) b.setAttribute('aria-current', 'true');
+          (function (j) {
+            b.addEventListener('click', function () {
+              goTo(j, true);
+            });
+          })(i);
+          dotsWrap.appendChild(b);
+        }
+      }
+
+      function applyPositions() {
+        var len = slides.length;
+        var active = idx;
+        var left = clampIndex(idx - 1);
+        var right = clampIndex(idx + 1);
+        for (var i = 0; i < len; i++) {
+          slides[i].setAttribute('data-pos', 'hidden');
+        }
+        slides[left].setAttribute('data-pos', 'left');
+        slides[right].setAttribute('data-pos', 'right');
+        slides[active].setAttribute('data-pos', 'active');
+        stage.appendChild(slides[active]);
+        renderDots();
+      }
+
+      function stop() {
+        if (timer) window.clearInterval(timer);
+        timer = null;
+      }
+
+      function start() {
+        stop();
+        timer = window.setInterval(function () {
+          goTo(idx + 1, false);
+        }, intervalMs);
+      }
+
+      function goTo(nextIdx, userInitiated) {
+        idx = clampIndex(nextIdx);
+        applyPositions();
+        if (userInitiated) start();
+      }
+
+      if (btnPrev) btnPrev.addEventListener('click', function () { goTo(idx - 1, true); });
+      if (btnNext) btnNext.addEventListener('click', function () { goTo(idx + 1, true); });
+
+      stage.addEventListener('mouseenter', stop);
+      stage.addEventListener('mouseleave', start);
+      applyPositions();
+      start();
+
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        stage.classList.add('dga-carousel__stage--parallax');
+        var parallaxImgs = stage.querySelectorAll('.dga-slide img');
+        var maxShift = 22;
+        function parallaxOnScroll() {
+          var rect = stage.getBoundingClientRect();
+          var vh = window.innerHeight || 800;
+          var centerY = rect.top + rect.height * 0.5;
+          var t = (vh * 0.5 - centerY) / vh;
+          var shift = Math.max(-maxShift, Math.min(maxShift, t * maxShift * 1.6));
+          stage.style.transform = 'translate3d(0,' + (shift * 0.35) + 'px,0)';
+          for (var p = 0; p < parallaxImgs.length; p++) {
+            var depth = p === idx ? 1 : 0.55;
+            parallaxImgs[p].style.transform =
+              'translate3d(0,' + (shift * depth * -0.65) + 'px,0) scale(1.015)';
+          }
+        }
+        window.addEventListener('scroll', parallaxOnScroll, { passive: true });
+        window.addEventListener('resize', parallaxOnScroll);
+        parallaxOnScroll();
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { getSupabase } from '../lib/supabase';
 import type { AccessibilityPrefsCloud } from '../lib/accessibilityPrefs';
+import type { InAppNotifyPrefs } from '../lib/notificationBannerPrefs';
 
 /** Stored in `user_settings.preferences` (JSON). */
 export type UserPrefsDoc = {
@@ -21,6 +22,8 @@ export type UserPrefsDoc = {
   blocked_user_ids?: string[];
   /** Saved media asset ids for the media library bookmark feature. */
   saved_media_ids?: string[];
+  /** In-app banner category toggles (synced across devices). */
+  in_app_notify?: InAppNotifyPrefs;
 };
 
 export const DEFAULT_USER_PREFS: UserPrefsDoc = {
@@ -45,6 +48,9 @@ function mergePrefs(base: UserPrefsDoc, patch: Partial<UserPrefsDoc>): UserPrefs
     accessibility: { ...base.accessibility, ...patch.accessibility },
     blocked_user_ids: patch.blocked_user_ids ?? base.blocked_user_ids,
     saved_media_ids: patch.saved_media_ids ?? base.saved_media_ids,
+    in_app_notify: patch.in_app_notify
+      ? { ...base.in_app_notify, ...patch.in_app_notify }
+      : base.in_app_notify,
   };
 }
 
@@ -86,13 +92,15 @@ export async function fetchUserPrefsDoc(userId: string): Promise<UserPrefsDoc> {
   const privacy = (p.privacy as UserPrefsDoc['privacy']) ?? {};
   const notification_channels = (p.notification_channels as UserPrefsDoc['notification_channels']) ?? {};
   const accessibility = (p.accessibility as UserPrefsDoc['accessibility']) ?? {};
+  const in_app_notify = (p.in_app_notify as UserPrefsDoc['in_app_notify']) ?? undefined;
   const blocked_user_ids = Array.isArray(p.blocked_user_ids)
     ? (p.blocked_user_ids as string[]).filter((id) => typeof id === 'string')
     : undefined;
   return mergePrefs(DEFAULT_USER_PREFS, {
-    privacy,
+    privacy: { ...privacy, profile_public: true },
     notification_channels,
     accessibility,
+    ...(in_app_notify ? { in_app_notify } : {}),
     ...(blocked_user_ids ? { blocked_user_ids } : {}),
   });
 }
@@ -109,6 +117,7 @@ export async function patchUserPrefsDoc(userId: string, patch: Partial<UserPrefs
     const notification_channels =
       (raw.notification_channels as UserPrefsDoc['notification_channels']) ?? {};
     const accessibility = (raw.accessibility as UserPrefsDoc['accessibility']) ?? {};
+    const in_app_notify = (raw.in_app_notify as UserPrefsDoc['in_app_notify']) ?? undefined;
     const blocked_user_ids = Array.isArray(raw.blocked_user_ids)
       ? (raw.blocked_user_ids as string[]).filter((id) => typeof id === 'string')
       : undefined;
@@ -116,9 +125,11 @@ export async function patchUserPrefsDoc(userId: string, patch: Partial<UserPrefs
       privacy,
       notification_channels,
       accessibility,
+      ...(in_app_notify ? { in_app_notify } : {}),
       ...(blocked_user_ids ? { blocked_user_ids } : {}),
     });
   }
   const merged = mergePrefs(base, patch);
+  merged.privacy = { ...merged.privacy, profile_public: true };
   return upsertWithRetry(userId, merged as unknown as Record<string, unknown>);
 }

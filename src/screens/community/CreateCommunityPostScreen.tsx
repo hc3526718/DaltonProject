@@ -30,8 +30,9 @@ import {
 } from '../../lib/mediaComposer';
 import { getSupabase } from '../../lib/supabase';
 import { isSupabaseConfigured } from '../../lib/env';
-import { uriToBlob } from '../../lib/uriToBlob';
+import { uploadLocalUriToStorage } from '../../lib/uploadLocalFile';
 import { canSubmitCommunityPost } from '../../roadmap/communityPolicy';
+import { normalizePostBodyForStorage, validateMentionsInText } from '../../lib/postMentions';
 import { insertCommunityPost, listAllEvents } from '../../roadmap/liveDataService';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useCommunityTheme } from './CommunityStylesContext';
@@ -124,8 +125,14 @@ export function CreateCommunityPostScreen({ navigation }: Props) {
     }
     setBusy(true);
     try {
+      const mentionErr = await validateMentionsInText(captionPlain);
+      if (mentionErr) {
+        Alert.alert('Unknown mention', mentionErr);
+        return;
+      }
       const eventTag = eventId ? `\n\n#event:${eventId}` : '';
-      const created = await insertCommunityPost(user.id, `${captionPlain.trim()}${eventTag}`);
+      const bodyStored = normalizePostBodyForStorage(captionPlain.trim());
+      const created = await insertCommunityPost(user.id, `${bodyStored}${eventTag}`);
       if ('error' in created) {
         Alert.alert('Could not post', created.error);
         return;
@@ -138,23 +145,24 @@ export function CreateCommunityPostScreen({ navigation }: Props) {
           const m = picks[i]!;
           try {
             const contentType = m.mimeType ?? inferContentType(m.kind, m.uri);
-            const blob = await uriToBlob(m.uri, contentType);
             const ext = inferExt(m.kind, m.uri);
             const storage_path = `posts/${user.id}/${row.id}/${Date.now()}-${i}.${ext}`;
-            const up = await supabase.storage.from('media_assets').upload(storage_path, blob, {
+            const up = await uploadLocalUriToStorage(
+              supabase,
+              'media_assets',
+              storage_path,
+              m.uri,
               contentType,
-              upsert: false,
-            });
-            if (up.error) {
-              uploadErrors.push(up.error.message);
+            );
+            if (!up.ok) {
+              uploadErrors.push(up.error);
               continue;
             }
-            const pub = supabase.storage.from('media_assets').getPublicUrl(storage_path);
             const { error: insErr } = await supabase.from('media_assets').insert({
               owner_id: user.id,
               kind: m.kind,
               storage_path,
-              public_url: pub.data.publicUrl ?? null,
+              public_url: up.publicUrl,
               mime_type: contentType,
               visibility: 'public',
               post_id: row.id,

@@ -1,0 +1,122 @@
+/**
+ * Shared design tokens for DaltonProject mockups.
+ * Individual pages keep Tailwind CDN configs; this aligns custom CSS and future refactors.
+ */
+:root {
+  --dalton-text-scale: 1;
+  --demo-bg: #0a0a0a;
+  --demo-surface: #1c1c1c;
+  --demo-surface-alt: #1a1a1a;
+  --demo-input: #2a2a2a;
+  --demo-gold: #c8a84b;
+  --demo-gold-alt: #d4af37;
+  --demo-text: #d4d0c8;
+  --demo-text-muted: #9a9690;
+  --demo-border: #787570;
+  --demo-error: #e8533a;
+  --demo-font-heading: "Bebas Neue", sans-serif;
+  --demo-font-body: "DM Sans", sans-serif;
+}
+
+#demo-home-chip {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top, 8px));
+  left: 8px;
+  z-index: 9998;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-family: var(--demo-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--demo-bg);
+  background: var(--demo-gold);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+#demo-global-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9997;
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+  background: rgba(20, 20, 20, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+#demo-global-dock .demo-dock-inner {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px 12px;
+}
+
+#demo-global-dock a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  text-decoration: none;
+  color: #9a9690;
+  font-family: var(--demo-font-body);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+#demo-global-dock a:hover,
+#demo-global-dock a:focus {
+  color: #d4d0c8;
+}
+
+#demo-global-dock a.demo-dock-active {
+  color: var(--demo-gold);
+}
+
+#demo-global-dock a i {
+  font-size: 1.15rem;
+}
+
+body.demo-dock-padded {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+html.dalton-a11y-text-lg body {
+  font-size: calc(16px * var(--dalton-text-scale, 1));
+}
+
+html.dalton-a11y-contrast body {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+html.dalton-a11y-mono .text-gold,
+html.dalton-a11y-mono .bg-gold {
+  color: #000000 !important;
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+html.dalton-a11y-mono .border-gold\/30,
+html.dalton-a11y-mono .border-line {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Marketing site: clear space below fixed header */
+body.dalton-marketing main,
+body.dalton-marketing > section.mx-auto {
+  padding-top: 7.75rem !important;
+}
+
+@media (min-width: 768px) {
+  body.dalton-marketing main,
+  body.dalton-marketing > section.mx-auto {
+    padding-top: 8.75rem !important;
+  }
+}

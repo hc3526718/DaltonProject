@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import type { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
-import { getRevenueCatEntitlementId } from '../lib/env';
+import { getRevenueCatEntitlementId, getRevenueCatOfferingIdentifier } from '../lib/env';
 
 const ENTITLEMENT_PREMIUM = getRevenueCatEntitlementId();
 
@@ -87,11 +87,10 @@ export async function initRevenueCat(): Promise<boolean> {
 export async function fetchOfferingForPaywall(): Promise<PurchasesOffering | null> {
   const Purchases = tryPurchases();
   if (!Purchases) return null;
-  const fromEnv = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_IDENTIFIER?.trim();
+  const fromEnv = getRevenueCatOfferingIdentifier();
   const preferredKeys = [
     ...(fromEnv ? [fromEnv] : []),
     'Official Offering',
-    'default',
   ];
   try {
     const offerings = await Purchases.getOfferings();

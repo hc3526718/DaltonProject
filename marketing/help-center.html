@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Dalton Grant Academy — Help Centre</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="shared/site-transition.css" />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { ink: "#0A0A0A", gold: "#C8A84B", mist: "#D4D0C8", dim: "#9A9690", line: "rgba(255,255,255,0.09)", panel: "rgba(255,255,255,0.04)" },
+            fontFamily: { bebas: ['"Bebas Neue"', "sans-serif"], sans: ['"DM Sans"', "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <style>
+      body { font-family: "DM Sans", sans-serif; background: var(--demo-bg); color: var(--demo-text); }
+      .chip { cursor: pointer; }
+      .chip.active { background: rgba(200,168,75,0.15); border-color: rgba(200,168,75,0.45); color: #f2efe8; }
+      .article.hidden { display: none; }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased dalton-marketing">
+    <div id="dalton-staggered-menu"></div>
+    <main class="mx-auto max-w-4xl px-5 pt-20 pb-10">
+      <p class="font-bebas text-gold tracking-[0.24em] text-sm">HELP CENTRE</p>
+      <h1 class="font-bebas text-4xl md:text-5xl text-mist mt-2">How can we help?</h1>
+      <div class="mt-6 relative">
+        <input
+          id="search"
+          type="search"
+          placeholder="Search topics…"
+          class="w-full rounded-2xl border border-line bg-panel px-5 py-4 text-mist placeholder:text-dim focus:outline-none focus:border-gold/50"
+        />
+      </div>
+      <div id="chips" class="flex flex-wrap gap-2 mt-4"></div>
+
+      <section class="mt-8 rounded-2xl border border-line bg-panel p-5" aria-labelledby="a11y-preview-title">
+        <h2 id="a11y-preview-title" class="text-mist font-semibold text-lg">Accessibility preview</h2>
+        <p class="text-dim text-sm mt-1 leading-relaxed">
+          Same options as the app (Settings → Accessibility). Changes apply to this page for preview; sign in on web to sync prefs to your account.
+        </p>
+        <div class="mt-4 space-y-4">
+          <div>
+            <p class="text-mist text-sm font-medium">Larger text</p>
+            <p class="text-dim text-xs mt-0.5">Locks at 1×, 2×, or 3×</p>
+            <div class="flex gap-2 mt-2" id="a11y-text-scale"></div>
+          </div>
+          <label class="flex items-center justify-between gap-3 cursor-pointer">
+            <span>
+              <span class="text-mist text-sm font-medium block">Differentiate without color</span>
+              <span class="text-dim text-xs">Monochrome UI with stronger borders</span>
+            </span>
+            <input type="checkbox" id="a11y-mono" class="w-5 h-5 accent-[#c8a84b]" />
+          </label>
+          <label class="flex items-center justify-between gap-3 cursor-pointer">
+            <span>
+              <span class="text-mist text-sm font-medium block">Sufficient contrast</span>
+              <span class="text-dim text-xs">True black background, brighter text</span>
+            </span>
+            <input type="checkbox" id="a11y-contrast" class="w-5 h-5 accent-[#c8a84b]" />
+          </label>
+        </div>
+        <p class="mt-4 text-sm text-mist" id="a11y-sample">Sample body text at your selected scale.</p>
+      </section>
+
+      <div id="articles" class="mt-8 space-y-4"></div>
+      <div class="mt-10 rounded-2xl border border-gold/30 bg-panel p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <p class="text-mist font-semibold">Still stuck?</p>
+          <p class="text-dim text-sm mt-1">Use the AI assistant on Contact or email the team.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="/contact-assistant" class="px-4 py-2.5 rounded-xl bg-gold text-ink text-sm font-semibold hover:opacity-90 transition-opacity">AI assistant</a>
+          <a href="/contact-team" class="px-4 py-2.5 rounded-xl border border-line text-mist text-sm font-semibold">Email support</a>
+        </div>
+      </div>
+    </main>
+    <script>
+      const ARTICLES = [
+        { t: "Getting started", k: "sign up login onboarding google apple", b: "Sign in at /app with email, Google, or Apple. Complete onboarding, then use Community, Events, Media, and Profile with the same account on every device." },
+        { t: "Premium — one subscription", k: "premium stripe revenuecat billing restore web ios", b: "Subscribe once per account. Web uses Stripe Checkout; iOS uses the App Store via RevenueCat. Android is not available yet — do not buy twice; sign in with the same email. Use Restore purchases on iOS after payment." },
+        { t: "Dalton verification", k: "verified creator publish host upload awaiting", b: "Grant Access Pro first, then automatic Dalton verification usually within about 24–48 hours — no separate form. Creator tools stay locked until it lands." },
+        { t: "Community & feed", k: "post feed refresh comment", b: "Pull to refresh. Feed updates in realtime when online and when you return to the app." },
+        { t: "Events & tickets", k: "book event ticket qr host", b: "Browse Events, book sessions, and use host tools when verified. Offline viewing of previously opened events is limited." },
+        { t: "Accessibility", k: "larger text contrast dark color", b: "In-app Settings → Accessibility: Larger Text (1×–3×), Differentiate Without Color Alone, Sufficient Contrast — four controls only. Dark interface is default; prefs sync when signed in." },
+        { t: "Delete account", k: "gdpr delete removal", b: "In the app: Profile → Settings → delete account permanently (you will confirm with DELETE). Cancel Apple or Stripe subscriptions first — see Settings → Stripe billing on web." },
+        { t: "Terms & conditions", k: "terms conditions terms of service legal", b: "Read the Terms & conditions for The Dalton Grant Academy.", url: "/terms" },
+        { t: "Privacy policy", k: "privacy policy legal gdpr data", b: "Read the Privacy policy for The Dalton Grant Academy.", url: "/privacy" },
+        { t: "Cookie policy", k: "cookies cookie policy tracking legal", b: "Read the Cookie policy for the website.", url: "/cookie-policy" },
+        { t: "Athlete agreement", k: "athlete agreement program terms legal", b: "Read the Athlete agreement for the academy program.", url: "/athlete-agreement" },
+      ];
+      const SUGGESTED = ["Premium subscription", "Dalton verification", "Restore purchases", "Accessibility", "Delete account"];
+      const chipsEl = document.getElementById("chips");
+      const articlesEl = document.getElementById("articles");
+      const searchEl = document.getElementById("search");
+      function renderArticles(q) {
+        const needle = (q || "").trim().toLowerCase();
+        articlesEl.innerHTML = ARTICLES.filter((a) => !needle || (a.t + a.k + a.b).toLowerCase().includes(needle))
+          .map((a) => {
+            const link = a.url
+              ? `<a class="inline-flex items-center gap-2 text-gold font-semibold text-sm mt-3 hover:opacity-90 transition-opacity" href="${a.url}">Open document →</a>`
+              : "";
+            return `<article class="article rounded-2xl border border-line bg-panel p-5"><h2 class="text-mist font-semibold text-lg">${a.t}</h2><p class="text-dim mt-2 leading-relaxed">${a.b}</p>${link}</article>`;
+          })
+          .join("") || '<p class="text-dim">No results. Try another topic or <a class="text-gold underline" href="/contact-us">contact us</a>.</p>';
+      }
+      SUGGESTED.forEach((label) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip px-3 py-1.5 rounded-full border border-line text-dim text-sm";
+        b.textContent = label;
+        b.onclick = () => { searchEl.value = label; document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active")); b.classList.add("active"); renderArticles(label); };
+        chipsEl.appendChild(b);
+      });
+      searchEl.addEventListener("input", () => { document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active")); renderArticles(searchEl.value); });
+      const params = new URLSearchParams(location.search);
+      const q = params.get("q");
+      if (q) searchEl.value = q;
+      renderArticles(searchEl.value);
+
+      const A11Y_KEY = "dalton_accessibility_prefs_v2";
+      function loadA11y() {
+        try {
+          return JSON.parse(localStorage.getItem(A11Y_KEY) || "{}");
+        } catch {
+          return {};
+        }
+      }
+      function saveA11y(p) {
+        localStorage.setItem(A11Y_KEY, JSON.stringify(p));
+        applyA11y(p);
+      }
+      function applyA11y(p) {
+        const level = [1, 2, 3].includes(p.textScaleLevel) ? p.textScaleLevel : p.largerText ? 2 : 1;
+        const scale = level >= 3 ? 1.42 : level >= 2 ? 1.28 : 1;
+        document.documentElement.style.setProperty("--dalton-text-scale", String(scale));
+        document.documentElement.classList.toggle("dalton-a11y-text-lg", scale > 1.05);
+        document.documentElement.classList.toggle("dalton-a11y-mono", !!p.differentiateWithoutColor);
+        document.documentElement.classList.toggle("dalton-a11y-contrast", !!p.sufficientContrast);
+        const sample = document.getElementById("a11y-sample");
+        if (sample) sample.style.fontSize = Math.round(14 * scale) + "px";
+      }
+      const a11y = { textScaleLevel: 1, differentiateWithoutColor: false, sufficientContrast: false, ...loadA11y() };
+      const scaleHost = document.getElementById("a11y-text-scale");
+      [1, 2, 3].forEach((n) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip flex-1 text-center";
+        b.textContent = n + "×";
+        b.onclick = () => {
+          a11y.textScaleLevel = n;
+          a11y.largerText = n > 1;
+          saveA11y(a11y);
+          paintScale();
+        };
+        scaleHost.appendChild(b);
+      });
+      function paintScale() {
+        scaleHost.querySelectorAll("button").forEach((btn, i) => {
+          btn.classList.toggle("active", i + 1 === a11y.textScaleLevel);
+        });
+      }
+      document.getElementById("a11y-mono").checked = !!a11y.differentiateWithoutColor;
+      document.getElementById("a11y-contrast").checked = !!a11y.sufficientContrast;
+      document.getElementById("a11y-mono").onchange = (e) => {
+        a11y.differentiateWithoutColor = e.target.checked;
+        saveA11y(a11y);
+      };
+      document.getElementById("a11y-contrast").onchange = (e) => {
+        a11y.sufficientContrast = e.target.checked;
+        saveA11y(a11y);
+      };
+      if (!a11y.textScaleLevel) a11y.textScaleLevel = a11y.largerText ? 2 : 1;
+      paintScale();
+      applyA11y(a11y);
+    </script>
+    <script src="shared/marketing-chrome.js"></script>
+    <script src="shared/site-transition.js"></script>
+    <script src="shared/site-footer.js"></script>
+  </body>
+</html>

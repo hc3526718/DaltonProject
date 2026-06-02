@@ -85,14 +85,15 @@ function MyProposalsList({
         Alert.alert('Messages', 'Could not start a conversation.');
         return;
       }
-      (navigation as ProfileProps['navigation']).getParent()?.navigate('Community' as never, {
+      const parent = (navigation as any).getParent?.() as { navigate: (...args: any[]) => void } | undefined;
+      parent?.navigate('Community', {
         screen: 'MessageThread',
         params: {
           conversationId: cid,
           peerUserId: row.reviewed_by,
           name: 'Dalton partnerships',
         },
-      } as never);
+      });
     },
     [navigation],
   );

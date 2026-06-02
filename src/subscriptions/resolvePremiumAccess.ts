@@ -20,7 +20,7 @@ export async function resolvePremiumAccess(): Promise<boolean> {
   if (dbPro === true) return true;
 
   if (Platform.OS === 'web') {
-    return dbPro === true;
+    return false;
   }
 
   await initRevenueCat();
@@ -38,7 +38,7 @@ export async function resolvePaymentVerifiedAccess(): Promise<boolean> {
   if (dbPaid === true) return true;
 
   if (Platform.OS === 'web') {
-    return dbPaid === true;
+    return false;
   }
 
   await initRevenueCat();

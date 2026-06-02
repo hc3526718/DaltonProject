@@ -24,7 +24,7 @@ const TAGS = [
   'Mobility',
   'Competition',
 ] as const;
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 export function MediaProposalWizard({ navigation }: Props) {
   const { user } = useAuth();
@@ -38,6 +38,9 @@ export function MediaProposalWizard({ navigation }: Props) {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmTitle, setConfirmTitle] = useState<string | null>(null);
+  const [seriesTitle, setSeriesTitle] = useState('');
+  const [seriesPart, setSeriesPart] = useState('1');
+  const [featureSeries, setFeatureSeries] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,7 +105,15 @@ export function MediaProposalWizard({ navigation }: Props) {
     const result = await masterInstantPublish(
       user.id,
       'media',
-      { title: title.trim(), pitch: pitch.trim(), category, tags: selectedTags },
+      {
+        title: title.trim(),
+        pitch: pitch.trim(),
+        category,
+        tags: selectedTags,
+        series_title: seriesTitle.trim() || undefined,
+        series_part: seriesTitle.trim() ? parseInt(seriesPart.trim(), 10) || 1 : undefined,
+        feature_series: featureSeries && !!seriesTitle.trim(),
+      },
       uploaded,
       [{ uri: video.uri, name: video.name }],
     );
@@ -112,11 +123,11 @@ export function MediaProposalWizard({ navigation }: Props) {
       return;
     }
     setConfirmTitle(title.trim());
-    setStep(5);
-  }, [category, pitch, publishing, selectedTags, title, user?.id, video]);
+    setStep(6);
+  }, [category, featureSeries, pitch, publishing, selectedTags, seriesPart, seriesTitle, title, user?.id, video]);
 
   useEffect(() => {
-    if (step !== 5 || !confirmTitle) return;
+    if (step !== 6 || !confirmTitle) return;
     const timer = setTimeout(() => {
       navigation.reset({
         index: 0,
@@ -217,11 +228,51 @@ export function MediaProposalWizard({ navigation }: Props) {
         </View>
         {selectedTags.length ? <Text style={styles.tagPreview}>Selected: {tagsLine}</Text> : null}
       </>,
-      { nextLabel: 'Review', nextDisabled: selectedTags.length === 0 },
+      { nextLabel: 'Series', nextDisabled: selectedTags.length === 0 },
     );
   }
 
   if (step === 4) {
+    return chrome(
+      <>
+        <Text style={styles.lead}>
+          Optional: add this video to a series. Featured series is shown at the top of Media.
+        </Text>
+        <Text style={styles.label}>Series title</Text>
+        <TextInput
+          style={styles.input}
+          value={seriesTitle}
+          onChangeText={setSeriesTitle}
+          placeholder="e.g. The Champion&apos;s Mindset"
+          placeholderTextColor={DS.color.textMuted}
+        />
+        <Text style={styles.label}>Part number</Text>
+        <TextInput
+          style={styles.input}
+          value={seriesPart}
+          onChangeText={setSeriesPart}
+          keyboardType="number-pad"
+          placeholder="1"
+          placeholderTextColor={DS.color.textMuted}
+        />
+        <Pressable
+          style={[styles.featureRow, featureSeries && styles.featureRowOn]}
+          onPress={() => setFeatureSeries((v) => !v)}
+          disabled={!seriesTitle.trim()}
+        >
+          <FontAwesome
+            name={featureSeries ? 'check-square' : 'square-o'}
+            size={18}
+            color={seriesTitle.trim() ? DS.color.gold : DS.color.textMuted}
+          />
+          <Text style={styles.featureRowText}>Feature this series on Media home</Text>
+        </Pressable>
+      </>,
+      { nextLabel: 'Review' },
+    );
+  }
+
+  if (step === 5) {
     return chrome(
       <>
         <Text style={styles.lead}>Preview how this looks to a standard user.</Text>
@@ -387,5 +438,25 @@ const styles = StyleSheet.create({
     color: DS.color.textMuted,
     textAlign: 'center',
     marginTop: DS.space.xl,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.lg,
+    padding: DS.space.md,
+    borderRadius: DS.radius.md,
+    borderWidth: 1,
+    borderColor: DS.color.borderHairline,
+  },
+  featureRowOn: {
+    borderColor: DS.color.gold,
+    backgroundColor: DS.color.goldTint10,
+  },
+  featureRowText: {
+    flex: 1,
+    fontFamily: DS.font.body,
+    fontSize: 14,
+    color: DS.color.text,
   },
 });

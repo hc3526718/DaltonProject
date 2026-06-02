@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome } from '@expo/vector-icons';
-import { useBeforeRemove, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useWizardBeforeRemove } from '../hooks/useWizardBeforeRemove';
 import { useAuth } from '../auth/AuthContext';
 import { DS } from '../designSystem';
+import { pickLocalImage, pickLocalVideo } from '../lib/pickLocalMedia';
 import { uploadProposalAttachment } from '../lib/proposalAttachmentUpload';
 import type { SponsorsStackParamList } from '../navigation/types';
 import {
@@ -200,7 +201,7 @@ export function EditSponsorWizardScreen({ navigation, route }: Props) {
     websiteUrl,
   ]);
 
-  useBeforeRemove(
+  useWizardBeforeRemove(
     useCallback(
       (e) => {
         if (!dirty || saving) return;
@@ -215,52 +216,30 @@ export function EditSponsorWizardScreen({ navigation, route }: Props) {
   );
 
   const pickCover = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setCoverImage({ name: a.name ?? 'cover.jpg', uri: a.uri });
+    const picked = await pickLocalImage({ title: 'Cover image' });
+    const a = picked[0];
+    if (!a) return;
+    setCoverImage({ name: a.name, uri: a.uri });
   }, []);
 
   const pickLogo = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setLogo({ name: a.name ?? 'logo.png', uri: a.uri });
+    const picked = await pickLocalImage({ title: 'Logo' });
+    const a = picked[0];
+    if (!a) return;
+    setLogo({ name: a.name, uri: a.uri });
   }, []);
 
   const pickGallery = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: true,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    setGallery((prev) => [
-      ...prev,
-      ...res.assets.map((a) => ({ name: a.name ?? 'image.jpg', uri: a.uri })),
-    ]);
+    const picked = await pickLocalImage({ multiple: true, title: 'Gallery images' });
+    if (!picked.length) return;
+    setGallery((prev) => [...prev, ...picked.map((a) => ({ name: a.name, uri: a.uri }))]);
   }, []);
 
   const pickVideo = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'video/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setVideo({ name: a.name ?? 'video.mp4', uri: a.uri });
+    const picked = await pickLocalVideo({ title: 'Promo video' });
+    const a = picked[0];
+    if (!a) return;
+    setVideo({ name: a.name, uri: a.uri });
   }, []);
 
   const save = useCallback(async () => {
@@ -453,13 +432,16 @@ export function EditSponsorWizardScreen({ navigation, route }: Props) {
   }
 
   if (step === 2) {
+    const socialPrev = parseSocialObject(page.social_links);
+    const logoUri = logo?.uri?.trim() || socialPrev.logo_url?.trim() || '';
     const heroUri = coverImage?.uri?.trim() || page.hero_image_url?.trim() || '';
     return chrome(
       <>
         <Text style={styles.lead}>Update your hero/cover and logo.</Text>
         <Text style={styles.label}>Logo</Text>
+        {logoUri ? <Image source={{ uri: logoUri }} style={styles.logoPreview} /> : null}
         <Text style={styles.linkBtn} onPress={() => void pickLogo()}>
-          {logo ? 'Change logo' : '+ Upload logo'}
+          {logo ? 'Change logo' : logoUri ? 'Replace logo' : '+ Upload logo'}
         </Text>
         {logo ? <Text style={styles.fileRow}>{logo.name}</Text> : null}
         <Text style={styles.label}>Cover image</Text>
@@ -670,6 +652,13 @@ const styles = StyleSheet.create({
   multiSmall: { minHeight: 72, textAlignVertical: 'top' },
   linkBtn: { marginTop: DS.space.sm, color: DS.color.gold, fontFamily: DS.font.bodyBold },
   fileRow: { marginTop: DS.space.xs, color: DS.color.textMuted, fontFamily: DS.font.body, fontSize: 12 },
+  logoPreview: {
+    width: 96,
+    height: 96,
+    borderRadius: DS.radius.lg,
+    marginTop: DS.space.sm,
+    backgroundColor: DS.color.surfaceAlt,
+  },
   heroImg: { width: '100%', height: 180, borderRadius: DS.radius.lg, marginTop: DS.space.sm },
   rowCard: {
     marginTop: DS.space.md,

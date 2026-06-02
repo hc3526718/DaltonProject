@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { ResizeMode, Video } from 'expo-av';
 import {
-  allowMediaSearchDemoFallback,
   isAppStoreScreenshotMode,
   isSupabaseConfigured,
 } from '../lib/env';
@@ -24,12 +23,27 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PullRefreshRiveOverlay } from '../components/PullRefreshRiveOverlay';
 import { OptionMenuModal } from '../components/OptionMenuModal';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { HighlightVideoModal } from '../components/HighlightVideoModal';
+import { MediaMetaPanel } from '../components/MediaMetaPanel';
+import { FeaturedSeriesPickerModal } from '../components/FeaturedSeriesPickerModal';
+import {
+  formatMediaDisplayTitle,
+  getMediaPresentation,
+  isVideoMediaAsset,
+  DEFAULT_VIDEO_THUMBNAIL_URI,
+  mediaThumbnailUri,
+  mediaThumbnailUriForDisplay,
+} from '../lib/mediaDisplay';
+import { subscribeSavedMediaChange } from '../lib/savedMediaEvents';
 import { useAuth } from '../auth/AuthContext';
 import { useSubscription } from '../subscriptions/SubscriptionContext';
 import { gatePremiumFeatureAccess } from '../subscriptions/premiumFeatureGate';
 import { useActionBanner } from '../actionBanner/ActionBannerContext';
 import {
+  clearMediaWatchProgress,
   listContinueWatching,
+  pruneContinueWatching,
   listFullyWatchedIds,
   setMediaWatchProgress,
 } from '../lib/mediaWatchProgress';
@@ -37,8 +51,10 @@ import { DS, tabRootHeaderPadding, tabRootTitleText } from '../designSystem';
 import type { MediaStackParamList } from '../navigation/types';
 import {
   deleteMediaAsset,
+  getFeaturedSeriesHead,
   getMediaAssetById,
   listBrowseMediaAssets,
+  listMediaInSeries,
 } from '../roadmap/liveDataService';
 import type { MediaAssetRow } from '../roadmap/types';
 import { useRefreshWithMinimum } from '../hooks/useRefreshWithMinimum';
@@ -51,8 +67,7 @@ const HERO_LIB =
   'https://storage.googleapis.com/uxpilot-auth.appspot.com/1a75224564-2a540432ce03b03b0b14.png';
 const PLAYER_STILL =
   'https://storage.googleapis.com/uxpilot-auth.appspot.com/93d0cf48f4-ce5f5c9499d653769bad.png';
-const THUMB =
-  'https://storage.googleapis.com/uxpilot-auth.appspot.com/31c2b75d62-cdb79732e3d7fcb5be97.png';
+const THUMB = DEFAULT_VIDEO_THUMBNAIL_URI;
 
 type SavedBadgeVariant = 'gold' | 'blue' | 'accent' | 'green' | 'purple';
 
@@ -63,6 +78,7 @@ type SavedMediaItem = {
   category: string;
   badgeVariant: SavedBadgeVariant;
   title: string;
+  tagsLine?: string;
   meta: string;
   rating: string;
   savedAgo: string;
@@ -170,45 +186,24 @@ function playerMeta(title: string) {
   };
 }
 
-const UP_NEXT_ITEMS = [
-  {
-    title: 'Footwork Fundamentals',
-    channel: 'Elite Boxing',
-    duration: '8:45',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/38b2a2e045-566bd50dd7ade8850f92.png',
-  },
-  {
-    title: 'Defensive Boxing',
-    channel: 'Boxing Academy',
-    duration: '15:22',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/99b51df8b7-817bb84e9fd20a41ab2c.png',
-  },
-  {
-    title: 'Sparring Strategies',
-    channel: 'Pro Boxing',
-    duration: '22:18',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/a6bf06ab69-e4b020b342fade24340e.png',
-  },
-] as const;
-
-const RELATED_ITEMS = [
-  {
-    title: 'Boxing Conditioning',
-    meta: 'Fitness Boxing • 2.5M views',
-    duration: '18:07',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/7489c70a33-f137e7f5db66644a0808.png',
-    rating: '4.8',
-  },
-  {
-    title: 'Mental Boxing Prep',
-    meta: 'Mind Sports • 890K views',
-    duration: '11:02',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/2572604e70-24280542fbd1badb649c.png',
-    rating: '4.9',
-  },
-] as const;
-
 const BROWSE = ['All Media', 'Training', 'Mindset', 'Nutrition', 'Recovery', 'Career'] as const;
+
+function MediaThumbnail({ asset, fill }: { asset: MediaAssetRow; fill?: boolean }) {
+  // Many of our “box” styles are valid for both Views and Images; TS treats them as ViewStyle.
+  const boxStyle = fill ? (styles.thumbMediaFill as any) : undefined;
+  const uri = mediaThumbnailUri(asset);
+  if (uri) {
+    return <Image source={{ uri }} style={[boxStyle, styles.thumbImg] as any} resizeMode="cover" />;
+  }
+  if (isVideoMediaAsset(asset)) {
+    return (
+      <View style={[boxStyle, styles.thumbVideoPlaceholder] as any}>
+        <FontAwesome name="play-circle" size={40} color={DS.color.gold} />
+      </View>
+    );
+  }
+  return <Image source={{ uri: THUMB }} style={[boxStyle, styles.thumbImg] as any} resizeMode="cover" />;
+}
 
 export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>) {
   const insets = useSafeAreaInsets();
@@ -224,17 +219,40 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
   }, [route.params?.createdMediaTitle, navigation, showBanner]);
   const [b, setB] = useState(0);
   const [browseAssets, setBrowseAssets] = useState<MediaAssetRow[]>([]);
+  const [featuredHero, setFeaturedHero] = useState<MediaAssetRow | null>(null);
+  const [featuredPickerOpen, setFeaturedPickerOpen] = useState(false);
   const [continueItems, setContinueItems] = useState<Awaited<ReturnType<typeof listContinueWatching>>>([]);
-  const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set());
   const loadBrowse = useCallback(async () => {
-    const [rows, cont, watched] = await Promise.all([
+    const [rows, watched, featured] = await Promise.all([
       listBrowseMediaAssets(80),
-      listContinueWatching(),
       listFullyWatchedIds(),
+      getFeaturedSeriesHead(),
     ]);
+    const validIds = new Set(rows.map((r) => r.id));
+    const assetById = new Map(rows.map((r) => [r.id, r]));
+    await pruneContinueWatching(validIds);
+    const contFresh = await listContinueWatching();
     setBrowseAssets(rows);
-    setContinueItems(cont);
-    setWatchedIds(watched);
+    setFeaturedHero(featured);
+    const watchedSet = watched;
+    const seen = new Set<string>();
+    setContinueItems(
+      contFresh
+        .filter((item) => {
+          if (!validIds.has(item.mediaId)) return false;
+          if (watchedSet.has(item.mediaId)) return false;
+          if (seen.has(item.mediaId)) return false;
+          seen.add(item.mediaId);
+          return true;
+        })
+        .map((item) => {
+          const asset = assetById.get(item.mediaId);
+          const thumb = asset
+            ? mediaThumbnailUriForDisplay(asset, item.thumb || THUMB)
+            : item.thumb || THUMB;
+          return { ...item, thumb };
+        }),
+    );
   }, []);
   const { refreshing, onRefresh } = useRefreshWithMinimum(
     useCallback(async () => {
@@ -306,26 +324,58 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
         showsVerticalScrollIndicator={false}
         refreshControl={pullRefreshControl(refreshing, onRefresh)}
       >
-        <Pressable
-          style={styles.hero}
-          onPress={() => navigation.navigate('MediaPlayer', { title: "The Champion's Mindset" })}
-        >
-          <Image source={{ uri: HERO_LIB }} style={styles.heroImage} />
-          <View style={styles.heroPlay}>
-            <View style={styles.playCircle}>
-              <FontAwesome name="play" size={22} color={DS.color.background} />
-            </View>
+        {featuredHero ? (
+          <View style={styles.heroWrap}>
+            {user?.masterControl ? (
+              <Pressable
+                style={styles.heroEditBtn}
+                onPress={() => setFeaturedPickerOpen(true)}
+                accessibilityLabel="Change featured series"
+              >
+                <FontAwesome name="pencil" size={14} color={DS.color.text} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={styles.hero}
+              onPress={() => {
+                const pres = getMediaPresentation(featuredHero);
+                navigation.navigate('MediaPlayer', {
+                  title: pres.title,
+                  mediaId: featuredHero.id,
+                  playbackUrl: featuredHero.public_url ?? undefined,
+                });
+              }}
+            >
+              <Image
+                source={{ uri: mediaThumbnailUri(featuredHero) || HERO_LIB }}
+                style={styles.heroImage as any}
+              />
+              <View style={styles.heroPlay}>
+                <View style={styles.playCircle}>
+                  <FontAwesome name="play" size={22} color={DS.color.background} />
+                </View>
+              </View>
+              <View style={styles.heroBottom}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroKicker}>Featured Series</Text>
+                  <Text style={styles.heroHead} numberOfLines={2}>
+                    {(featuredHero.series_title || getMediaPresentation(featuredHero).title).toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
           </View>
-          <View style={styles.heroBottom}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroKicker}>Featured Series</Text>
-              <Text style={styles.heroHead}>THE CHAMPION&apos;S MINDSET</Text>
-            </View>
-            <View style={styles.durationPill}>
-              <Text style={styles.durationPillText}>45:20</Text>
-            </View>
-          </View>
-        </Pressable>
+        ) : user?.masterControl ? (
+          <Pressable style={styles.heroPlaceholder} onPress={() => setFeaturedPickerOpen(true)}>
+            <FontAwesome name="star" size={20} color={DS.color.gold} />
+            <Text style={styles.heroPlaceholderText}>Set featured series</Text>
+          </Pressable>
+        ) : null}
+        <FeaturedSeriesPickerModal
+          visible={featuredPickerOpen}
+          onClose={() => setFeaturedPickerOpen(false)}
+          onSaved={() => void loadBrowse()}
+        />
         <Text style={styles.browseLabel}>BROWSE</Text>
         <ScrollView
           horizontal
@@ -351,11 +401,8 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
             </Text>
           ) : (
             browseAssets.map((asset) => {
-              const thumb = asset.thumbnail_url || asset.public_url || THUMB;
-              const label =
-                asset.title?.trim() ||
-                asset.storage_path?.split('/').pop() ||
-                asset.kind.toUpperCase();
+              const pres = getMediaPresentation(asset);
+              const label = pres.title;
               const open = () =>
                 navigation.navigate('MediaPlayer', {
                   title: label,
@@ -386,7 +433,7 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
                   onLongPress={user?.masterControl ? promptDelete : undefined}
                 >
                   <View style={styles.thumbWrap}>
-                    <Image source={{ uri: thumb }} style={styles.thumbImg} />
+                    <MediaThumbnail asset={asset} fill />
                     <View style={styles.thumbDur}>
                       <Text style={styles.thumbDurText}>{asset.kind}</Text>
                     </View>
@@ -395,6 +442,11 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
                   <Text style={styles.thumbTitle} numberOfLines={2}>
                     {label}
                   </Text>
+                  {pres.tags.length ? (
+                    <Text style={styles.thumbMeta} numberOfLines={2}>
+                      {pres.tags.join(', ')}
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })
@@ -416,10 +468,12 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
               >
                 <Image
                   source={{ uri: item.thumb || THUMB }}
-                  style={styles.continueThumb}
+                  style={styles.continueThumb as any}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.continueTitle}>{item.title}</Text>
+                  <Text style={styles.continueTitle}>
+                    {formatMediaDisplayTitle({ title: item.title, storage_path: item.title, kind: 'video' })}
+                  </Text>
                   <Text style={styles.muted}>
                     {Math.round((1 - item.progress) * 100)}% remaining
                   </Text>
@@ -429,36 +483,6 @@ export function MediaLibraryScreen({ navigation, route }: MProps<'MediaLibrary'>
                 </View>
               </Pressable>
             ))}
-          </>
-        ) : browseAssets.length > 0 && watchedIds.size >= browseAssets.length ? (
-          <>
-            <Text style={styles.browseLabel}>Recommended for you</Text>
-            <View style={styles.grid2}>
-              {browseAssets.slice(0, 4).map((asset) => {
-                const thumb = asset.thumbnail_url || asset.public_url || THUMB;
-                const label =
-                  asset.storage_path?.split('/').pop() || asset.kind.toUpperCase();
-                return (
-                  <Pressable
-                    key={`rec-${asset.id}`}
-                    style={styles.gridCell}
-                    onPress={() =>
-                      navigation.navigate('MediaPlayer', {
-                        title: label,
-                        mediaId: asset.id,
-                      })
-                    }
-                  >
-                    <View style={styles.thumbWrap}>
-                      <Image source={{ uri: thumb }} style={styles.thumbImg} />
-                    </View>
-                    <Text style={styles.thumbTitle} numberOfLines={2}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
           </>
         ) : null}
       </ScrollView>
@@ -550,71 +574,8 @@ type ResultRow = {
   rating: string;
 };
 
-const SEARCH_DEMO_RESULTS: ResultRow[] = [
-  {
-    id: '1',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/93d0cf48f4-a5cea2538cdb2fa62a17.png',
-    duration: '12:34',
-    badge: 'Training',
-    badgeVariant: 'gold',
-    title: 'Advanced Boxing Combinations for Power',
-    meta: 'Champion Training • 2.1M views',
-    rating: '4.8',
-  },
-  {
-    id: '2',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/38b2a2e045-8b3de2140e5664ce87de.png',
-    duration: '8:45',
-    badge: 'Training',
-    badgeVariant: 'gold',
-    title: 'Footwork Fundamentals: Moving Like a Pro',
-    meta: 'Elite Boxing • 1.8M views',
-    rating: '4.9',
-  },
-  {
-    id: '3',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/99b51df8b7-f98b1760c36b12a9d324.png',
-    duration: '15:22',
-    badge: 'Training',
-    badgeVariant: 'gold',
-    title: 'Defensive Boxing: Block, Slip, and Counter',
-    meta: 'Boxing Academy • 950K views',
-    rating: '4.7',
-  },
-  {
-    id: '4',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/a6bf06ab69-efbb06f2fd9c2cd73640.png',
-    duration: '22:18',
-    badge: 'Training',
-    badgeVariant: 'gold',
-    title: 'Sparring Strategies for Competition',
-    meta: 'Pro Boxing • 1.3M views',
-    rating: '4.6',
-  },
-  {
-    id: '5',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/7489c70a33-ab35b5f349626c86682c.png',
-    duration: '18:07',
-    badge: 'Training',
-    badgeVariant: 'gold',
-    title: 'Boxing Conditioning: Build Power & Endurance',
-    meta: 'Fitness Boxing • 2.5M views',
-    rating: '4.8',
-  },
-  {
-    id: '6',
-    uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/2572604e70-46425f8aaca7e7df2f16.png',
-    duration: '9:33',
-    badge: 'Mindset',
-    badgeVariant: 'accent',
-    title: 'Mental Boxing: Visualization Techniques',
-    meta: 'Mind Sports • 780K views',
-    rating: '4.9',
-  },
-];
-
 function mediaAssetToResultRow(r: MediaAssetRow): ResultRow {
-  const uri = r.thumbnail_url?.trim() || r.public_url?.trim() || THUMB;
+  const uri = mediaThumbnailUriForDisplay(r, THUMB);
   const label = r.kind === 'video' ? 'Video' : r.kind === 'image' ? 'Image' : 'Media';
   const name = r.storage_path?.split('/').pop() || 'Media asset';
   return {
@@ -649,11 +610,7 @@ export function MediaSearchResultsScreen({ navigation }: MProps<'MediaSearchResu
   }, [liveMediaMode]);
 
   const results = useMemo(() => {
-    let base: ResultRow[] = liveMediaMode
-      ? liveMedia.map(mediaAssetToResultRow)
-      : allowMediaSearchDemoFallback()
-        ? [...SEARCH_DEMO_RESULTS]
-        : [];
+    let base: ResultRow[] = liveMediaMode ? liveMedia.map(mediaAssetToResultRow) : [];
     const q = searchText.trim().toLowerCase();
     if (q) {
       base = base.filter(
@@ -661,30 +618,6 @@ export function MediaSearchResultsScreen({ navigation }: MProps<'MediaSearchResu
           r.title.toLowerCase().includes(q) ||
           r.meta.toLowerCase().includes(q) ||
           r.badge.toLowerCase().includes(q),
-      );
-    }
-    if (loadMoreDone && !liveMediaMode && allowMediaSearchDemoFallback() && !isAppStoreScreenshotMode()) {
-      base.push(
-        {
-          id: '7',
-          uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/93d0cf48f4-a5cea2538cdb2fa62a17.png',
-          duration: '11:02',
-          badge: 'Training',
-          badgeVariant: 'gold',
-          title: 'Heavy Bag: Power Sessions',
-          meta: 'Champion Training • 640K views',
-          rating: '4.7',
-        },
-        {
-          id: '8',
-          uri: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/38b2a2e045-8b3de2140e5664ce87de.png',
-          duration: '6:15',
-          badge: 'Training',
-          badgeVariant: 'gold',
-          title: 'Speed Ladder for Fighters',
-          meta: 'Elite Boxing • 420K views',
-          rating: '4.8',
-        },
       );
     }
     if (trainingFilter) {
@@ -783,7 +716,7 @@ export function MediaSearchResultsScreen({ navigation }: MProps<'MediaSearchResu
                 onPress={() => openPlayer(item.title, item.id)}
               >
                 <View style={styles.mediaCardImageWrap}>
-                  <Image source={{ uri: item.uri }} style={styles.mediaCardImage} />
+                  <Image source={{ uri: item.uri }} style={styles.mediaCardImage as any} />
                   <View style={styles.mediaCardPlay}>
                     <View style={styles.mediaCardPlayBtn}>
                       <FontAwesome name="play" size={16} color={DS.color.background} style={{ marginLeft: 3 }} />
@@ -833,7 +766,7 @@ export function MediaSearchResultsScreen({ navigation }: MProps<'MediaSearchResu
                 style={styles.resultLine}
                 onPress={() => openPlayer(item.title, item.id)}
               >
-                <Image source={{ uri: item.uri }} style={styles.resultThumb} />
+                <Image source={{ uri: item.uri }} style={styles.resultThumb as any} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.thumbTitle} numberOfLines={2}>
                     {item.title}
@@ -896,8 +829,10 @@ export function MediaSearchResultsScreen({ navigation }: MProps<'MediaSearchResu
 export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const title = route.params?.title ?? 'Advanced Boxing Combinations for Power';
-  const mediaId = route.params?.mediaId ?? `demo:${title}`;
+  const showBanner = useActionBanner();
+  const title = route.params?.title ?? 'Media';
+  const mediaId = route.params?.mediaId?.trim() ?? '';
+  const isDemoMedia = !mediaId || mediaId.startsWith('demo:');
   const paramPlayback = route.params?.playbackUrl?.trim() || '';
   const meta = playerMeta(title);
   const playerNotice = (msg: string) => Alert.alert('The Dalton Grant Academy', msg);
@@ -905,49 +840,68 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
   const [saved, setSaved] = useState(false);
   const [progress, setProgress] = useState(0.35);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [webFullscreenOpen, setWebFullscreenOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [seriesUpNext, setSeriesUpNext] = useState<MediaAssetRow[]>([]);
   const videoRef = useRef<Video | null>(null);
   const playbackUrl = paramPlayback || asset?.public_url?.trim() || '';
-  const thumb = asset?.thumbnail_url?.trim() || asset?.public_url?.trim() || PLAYER_STILL;
+  const thumb = asset
+    ? mediaThumbnailUriForDisplay(asset, PLAYER_STILL)
+    : mediaThumbnailUriForDisplay(
+        { kind: 'video', thumbnail_url: null, public_url: playbackUrl },
+        PLAYER_STILL,
+      );
   const isVideo = asset?.kind === 'video' || (!!playbackUrl && !playbackUrl.match(/\.(png|jpe?g|webp|gif)(\?|$)/i));
-  const displayTitle = useMemo(() => {
-    const raw = (asset?.title?.trim() || title || '').trim();
-    if (!raw) return 'Media';
-    // If title looks like an uploaded filename, make it human-friendly.
-    if (raw.match(/\.(mp4|mov|m4v|webm)$/i) || raw.match(/^\d{10,}-/)) {
-      const base = raw.replace(/\.(mp4|mov|m4v|webm)$/i, '');
-      return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-    return raw;
-  }, [asset?.title, title]);
-  const displayDesc = asset?.description?.trim() || meta.desc;
-  const displayTags =
-    Array.isArray(asset?.tags) && asset.tags.length ? asset.tags.join(', ') : null;
-  const parsedCategory = useMemo(() => {
-    const desc = asset?.description?.trim() || '';
-    const m = desc.match(/(?:^|\n)Category:\s*([^\n]+)\s*(?:\n|$)/i);
-    return m?.[1]?.trim() || null;
-  }, [asset?.description]);
-  const cleanedDesc = useMemo(() => {
-    const desc = (asset?.description?.trim() || displayDesc).trim();
-    return desc.replace(/\n*Category:\s*[^\n]+\s*/gi, '\n').trim();
-  }, [asset?.description, displayDesc]);
+  const presentation = useMemo(
+    () =>
+      isDemoMedia
+        ? {
+            title: title,
+            tags: [] as string[],
+            description: meta.desc,
+            category: meta.badge,
+          }
+        : getMediaPresentation(asset ?? { title, storage_path: title, kind: 'video' }, title),
+    [asset, isDemoMedia, meta.badge, meta.desc, title],
+  );
+  const displayTitle = presentation.title;
   const onFullscreen = useCallback(() => {
-    if (Platform.OS === 'web') {
-      setWebFullscreenOpen(true);
-      return;
-    }
-    try {
-      void videoRef.current?.presentFullscreenPlayerAsync();
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    if (!isVideo || !playbackUrl) return;
+    void videoRef.current?.pauseAsync?.();
+    setVideoModalOpen(true);
+  }, [isVideo, playbackUrl]);
 
   useEffect(() => {
-    if (!mediaId || mediaId.startsWith('demo:')) return;
-    void getMediaAssetById(mediaId).then(setAsset);
-  }, [mediaId]);
+    if (!videoModalOpen) return;
+    void videoRef.current?.pauseAsync?.();
+  }, [videoModalOpen]);
+
+  useEffect(() => {
+    if (isDemoMedia) {
+      navigation.goBack();
+      return;
+    }
+    void getMediaAssetById(mediaId).then((row) => {
+      if (!row) {
+        void clearMediaWatchProgress(mediaId);
+        navigation.goBack();
+        return;
+      }
+      setAsset(row);
+    });
+  }, [isDemoMedia, mediaId, navigation]);
+
+  useEffect(() => {
+    const seriesTitle = asset?.series_title?.trim();
+    if (!seriesTitle || isDemoMedia) {
+      setSeriesUpNext([]);
+      return;
+    }
+    void listMediaInSeries(seriesTitle, mediaId.startsWith('demo:') ? undefined : mediaId, 12).then(
+      setSeriesUpNext,
+    );
+  }, [asset?.series_title, isDemoMedia, mediaId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -957,21 +911,22 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
   );
 
   useEffect(() => {
+    if (isDemoMedia) return;
     void setMediaWatchProgress({
       mediaId,
-      title,
+      title: displayTitle,
       thumb,
       progress,
     });
     return () => {
       void setMediaWatchProgress({
         mediaId,
-        title,
+        title: displayTitle,
         thumb,
         progress,
       });
     };
-  }, [mediaId, title, thumb, progress]);
+  }, [mediaId, displayTitle, thumb, progress, isDemoMedia]);
 
   const toggleSave = useCallback(() => {
     if (!user?.id || user.id.startsWith('demo-')) {
@@ -979,10 +934,17 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
       return;
     }
     void (async () => {
+      const wasSaved = saved;
       const ok = await toggleSavedMediaId(user.id, mediaId);
-      if (ok) setSaved((s) => !s);
+      if (ok) {
+        const next = !wasSaved;
+        setSaved(next);
+        showBanner(next ? 'Saved to your library' : 'Removed from saved');
+      } else {
+        Alert.alert('Could not update', 'Your saved list could not be updated. Try again.');
+      }
     })();
-  }, [user?.id, mediaId]);
+  }, [mediaId, saved, showBanner, user?.id]);
 
   const goEditMedia = useCallback(() => {
     const id = asset?.id || (mediaId && !mediaId.startsWith('demo:') ? mediaId : '');
@@ -995,36 +957,23 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
     }
     // Fallback for nested navigation contexts
     try {
-      navigation
-        .getParent()
-        ?.navigate('Media' as never, { screen: 'EditMedia', params: { mediaId: id } } as never);
+      const parent = navigation.getParent() as unknown as { navigate: (...args: any[]) => void } | undefined;
+      parent?.navigate('Media', { screen: 'EditMedia', params: { mediaId: id } });
     } catch {
       Alert.alert('Media', 'Could not open the editor.');
     }
   }, [asset?.id, mediaId, navigation]);
 
-  const doDeleteMedia = useCallback(() => {
-    const id = asset?.id || (mediaId && !mediaId.startsWith('demo:') ? mediaId : '');
+  const confirmDeleteMedia = useCallback(async () => {
+    const id = asset?.id || (mediaId && !isDemoMedia ? mediaId : '');
     if (!id) return;
-    Alert.alert('Delete media?', 'Removes this media for everyone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            const ok = await deleteMediaAsset(id);
-            if (ok) {
-              Alert.alert('Deleted', 'This media has been removed.');
-              navigation.goBack();
-            } else {
-              Alert.alert('Could not delete', 'You may not have permission to delete this media.');
-            }
-          })();
-        },
-      },
-    ]);
-  }, [asset?.id, mediaId, navigation]);
+    setDeleteBusy(true);
+    const ok = await deleteMediaAsset(id);
+    setDeleteBusy(false);
+    setDeleteConfirmOpen(false);
+    if (ok) navigation.goBack();
+    else Alert.alert('Could not delete', 'You may not have permission to delete this media.');
+  }, [asset?.id, mediaId, isDemoMedia, navigation]);
 
   return (
     <View style={styles.root}>
@@ -1062,79 +1011,96 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
             key: 'delete',
             label: 'Delete media',
             destructive: true,
-            onPress: () => {
-              setMenuOpen(false);
-              doDeleteMedia();
-            },
+            onPress: () => setDeleteConfirmOpen(true),
           },
         ]}
       />
+      <ConfirmModal
+        visible={deleteConfirmOpen}
+        title="Delete media?"
+        message="Removes this media for everyone."
+        confirmLabel="Delete"
+        destructive
+        busy={deleteBusy}
+        onCancel={() => !deleteBusy && setDeleteConfirmOpen(false)}
+        onConfirm={() => void confirmDeleteMedia()}
+      />
+      <HighlightVideoModal
+        visible={videoModalOpen}
+        title={displayTitle}
+        videoUrl={playbackUrl}
+        onClose={() => setVideoModalOpen(false)}
+      />
       <View style={styles.playerStage}>
-        {isVideo && playbackUrl ? (
-          <Video
-            ref={videoRef}
-            source={{ uri: playbackUrl }}
-            style={styles.playerImg}
-            resizeMode={ResizeMode.CONTAIN}
-            useNativeControls
-            shouldPlay
-            onPlaybackStatusUpdate={(st) => {
-              if (!st.isLoaded) return;
-              const p = st.durationMillis ? st.positionMillis / st.durationMillis : 0;
-              if (Number.isFinite(p)) setProgress(Math.min(0.99, Math.max(0, p)));
-            }}
-          />
-        ) : (
-          <Image source={{ uri: thumb }} style={styles.playerImg} />
-        )}
+        <View style={styles.playerVideoFrame}>
+          {isVideo && playbackUrl && !videoModalOpen ? (
+            Platform.OS === 'web' ? (
+              <video
+                src={playbackUrl}
+                controls
+                playsInline
+                style={[styles.playerVideoWeb as any, styles.playerVideoWebInner as any] as any}
+                onTimeUpdate={(e) => {
+                  const el = e.currentTarget;
+                  if (!el.duration || !Number.isFinite(el.duration)) return;
+                  const p = el.currentTime / el.duration;
+                  if (Number.isFinite(p)) setProgress(Math.min(0.99, Math.max(0, p)));
+                }}
+              />
+            ) : (
+              <Video
+                ref={videoRef}
+                source={{ uri: playbackUrl }}
+                style={styles.playerVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls
+                shouldPlay={!videoModalOpen}
+                onPlaybackStatusUpdate={(st) => {
+                  if (!st.isLoaded) return;
+                  const p = st.durationMillis ? st.positionMillis / st.durationMillis : 0;
+                  if (Number.isFinite(p)) setProgress(Math.min(0.99, Math.max(0, p)));
+                }}
+              />
+            )
+          ) : !isVideo || !playbackUrl ? (
+            <Image source={{ uri: thumb }} style={styles.playerVideo as any} resizeMode="contain" />
+          ) : (
+            <View style={styles.playerVideoPoster}>
+              <FontAwesome name="play-circle" size={48} color={DS.color.gold} />
+            </View>
+          )}
+        </View>
         {isVideo && playbackUrl ? (
           <Pressable style={styles.fullscreenBtn} onPress={onFullscreen} accessibilityLabel="Fullscreen video">
             <FontAwesome name="expand" size={16} color={DS.color.white} />
           </Pressable>
         ) : null}
       </View>
-      <Modal visible={webFullscreenOpen} transparent animationType="fade" onRequestClose={() => setWebFullscreenOpen(false)}>
-        <Pressable style={styles.webFullscreenBackdrop} onPress={() => setWebFullscreenOpen(false)}>
-          <Pressable style={styles.webFullscreenSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.webFullscreenTop}>
-              <Text style={styles.webFullscreenTitle} numberOfLines={1}>
-                {displayTitle}
-              </Text>
-              <Pressable style={styles.playerChromeBtn} onPress={() => setWebFullscreenOpen(false)}>
-                <FontAwesome name="times" size={18} color={DS.color.text} />
-              </Pressable>
-            </View>
-            <View style={styles.webFullscreenStage}>
-              {isVideo && playbackUrl ? (
-                <Video
-                  source={{ uri: playbackUrl }}
-                  style={styles.webFullscreenVideo}
-                  resizeMode={ResizeMode.CONTAIN}
-                  useNativeControls
-                  shouldPlay
-                />
-              ) : (
-                <Image source={{ uri: thumb }} style={styles.webFullscreenVideo} />
-              )}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
       <ScrollView
         contentContainerStyle={[styles.padded, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.playerBadgeRow}>
-          <View style={styles.playerBadgePill}>
-            <Text style={styles.playerBadgeText}>{parsedCategory ?? meta.badge}</Text>
+        {isDemoMedia ? (
+          <View style={styles.playerBadgeRow}>
+            <View style={styles.playerBadgePill}>
+              <Text style={styles.playerBadgeText}>{meta.badge}</Text>
+            </View>
+            <Text style={styles.playerDurationLabel}>{meta.duration}</Text>
           </View>
-          <Text style={styles.playerDurationLabel}>{meta.duration}</Text>
-        </View>
-        <Text style={styles.playerTitle}>{displayTitle}</Text>
-        {!mediaId.startsWith('demo:') ? null : <Text style={styles.muted}>{meta.channelLine}</Text>}
-        <Text style={styles.body}>{cleanedDesc}</Text>
-        {parsedCategory ? <Text style={styles.muted}>Category: {parsedCategory}</Text> : null}
-        {displayTags ? <Text style={styles.muted}>Tags: {displayTags}</Text> : null}
+        ) : null}
+        {isDemoMedia ? (
+          <>
+            <Text style={styles.playerTitle}>{presentation.title}</Text>
+            <Text style={styles.muted}>{meta.channelLine}</Text>
+          </>
+        ) : (
+          <MediaMetaPanel
+            category={presentation.category ?? ''}
+            title={presentation.title}
+            description={presentation.description}
+            tags={presentation.tags}
+          />
+        )}
 
         <View style={styles.playerActionsRow}>
           <Pressable style={styles.playerActionGhost} onPress={toggleSave}>
@@ -1150,64 +1116,46 @@ export function MediaPlayerScreen({ navigation, route }: MProps<'MediaPlayer'>) 
           </Pressable>
         </View>
 
-        <Text style={styles.playerSectionTitle}>Up Next</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.upNextScroll}
-        >
-          {UP_NEXT_ITEMS.map((u) => (
-            <Pressable
-              key={u.title}
-              style={styles.upNextCard}
-              onPress={() => navigation.replace('MediaPlayer', { title: u.title })}
+        {seriesUpNext.length > 0 ? (
+          <>
+            <Text style={styles.playerSectionTitle}>More in this series</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.upNextScroll}
             >
-              <View style={styles.upNextThumbWrap}>
-                <Image source={{ uri: u.uri }} style={styles.upNextThumb} />
-                <Text style={styles.upNextDur}>{u.duration}</Text>
-              </View>
-              <Text style={styles.upNextCardTitle} numberOfLines={2}>
-                {u.title}
-              </Text>
-              <Text style={styles.upNextChannel}>{u.channel}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <Text style={styles.playerSectionTitle}>Related Videos</Text>
-        <View style={styles.relatedGrid}>
-          {RELATED_ITEMS.map((r) => (
-            <Pressable
-              key={r.title}
-              style={styles.relatedCard}
-              onPress={() => navigation.replace('MediaPlayer', { title: r.title })}
-            >
-              <View style={styles.relatedImageWrap}>
-                <Image source={{ uri: r.uri }} style={styles.relatedImage} />
-                <Text style={styles.relatedDur}>{r.duration}</Text>
-                <View style={styles.relatedBadge}>
-                  <Text style={styles.relatedBadgeText}>Training</Text>
-                </View>
-              </View>
-              <View style={styles.relatedBody}>
-                <Text style={styles.relatedTitle} numberOfLines={2}>
-                  {r.title}
-                </Text>
-                <Text style={styles.relatedMeta}>{r.meta}</Text>
-                <View style={styles.relatedFooter}>
-                  <View style={styles.mediaCardActions}>
-                    <FontAwesome name="heart-o" size={12} color={DS.color.textMuted} />
-                    <FontAwesome name="bookmark-o" size={12} color={DS.color.textMuted} />
-                  </View>
-                  <View style={styles.mediaCardRating}>
-                    <FontAwesome name="star" size={11} color={DS.color.gold} />
-                    <Text style={styles.mediaCardRatingText}>{r.rating}</Text>
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+              {seriesUpNext.map((a) => {
+                const pres = getMediaPresentation(a);
+                return (
+                  <Pressable
+                    key={a.id}
+                    style={styles.upNextCard}
+                    onPress={() =>
+                      navigation.replace('MediaPlayer', {
+                        title: pres.title,
+                        mediaId: a.id,
+                        playbackUrl: a.public_url ?? undefined,
+                      })
+                    }
+                  >
+                    <View style={styles.upNextThumbWrap}>
+                      <Image
+                        source={{ uri: mediaThumbnailUri(a) || THUMB }}
+                        style={styles.upNextThumb as any}
+                      />
+                    </View>
+                    <Text style={styles.upNextCardTitle} numberOfLines={2}>
+                      {pres.title}
+                    </Text>
+                    <Text style={styles.upNextChannel}>
+                      {a.series_title?.trim() || pres.category}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        ) : null}
 
         <Pressable style={styles.secondaryBtn} onPress={() => navigation.navigate('SavedMedia')}>
           <Text style={styles.secondaryBtnText}>Open saved library</Text>
@@ -1274,14 +1222,16 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
     const rows: SavedMediaItem[] = assets
       .filter((a): a is MediaAssetRow => !!a)
       .map((a) => {
-        const label = a.storage_path?.split('/').pop() || a.kind.toUpperCase();
+        const pres = getMediaPresentation(a);
+        const thumbUri = mediaThumbnailUri(a) || THUMB;
         return {
           id: a.id,
-          uri: a.thumbnail_url?.trim() || a.public_url?.trim() || THUMB,
+          uri: thumbUri,
           duration: a.kind === 'video' ? 'Video' : 'Media',
-          category: 'Training',
+          category: pres.category ?? 'Training',
           badgeVariant: 'gold' as SavedBadgeVariant,
-          title: label,
+          title: pres.title,
+          tagsLine: pres.tags.join(', '),
           meta: new Date(a.created_at).toLocaleDateString(),
           rating: '—',
           savedAgo: 'Saved',
@@ -1295,6 +1245,8 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
       void loadSaved();
     }, [loadSaved]),
   );
+
+  useEffect(() => subscribeSavedMediaChange(() => void loadSaved()), [loadSaved]);
 
   const filtered = useMemo(() => {
     if (filter === 'All') return items;
@@ -1348,7 +1300,9 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
         ))}
       </ScrollView>
 
-      <Text style={styles.savedCount}>12 saved videos</Text>
+      <Text style={styles.savedCount}>
+        {filtered.length} saved video{filtered.length === 1 ? '' : 's'}
+      </Text>
 
       {filtered.length === 0 ? (
         <View style={styles.savedEmpty}>
@@ -1375,7 +1329,7 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
                 <View key={item.id} style={styles.savedCard}>
                   <Pressable onPress={() => openPlayer(item.title, item.id)}>
                     <View style={styles.savedCardImageWrap}>
-                      <Image source={{ uri: item.uri }} style={styles.savedCardImage} />
+                      <Image source={{ uri: item.uri }} style={styles.savedCardImage as any} />
                       <View style={styles.savedCardPlay}>
                         <View style={styles.savedPlayCircle}>
                           <FontAwesome name="play" size={12} color={DS.color.background} style={{ marginLeft: 2 }} />
@@ -1390,6 +1344,11 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
                       <Text style={styles.savedCardTitle} numberOfLines={2}>
                         {item.title}
                       </Text>
+                      {item.tagsLine ? (
+                        <Text style={styles.savedCardMeta} numberOfLines={2}>
+                          {item.tagsLine}
+                        </Text>
+                      ) : null}
                       <Text style={styles.savedCardMeta}>{item.meta}</Text>
                       <View style={styles.savedCardFooter}>
                         <View style={styles.mediaCardRating}>
@@ -1415,7 +1374,7 @@ export function SavedMediaScreen({ navigation }: MProps<'SavedMedia'>) {
         >
           {filtered.map((item) => (
             <Pressable key={item.id} style={styles.resultLine} onPress={() => openPlayer(item.title, item.id)}>
-              <Image source={{ uri: item.uri }} style={styles.resultThumb} />
+              <Image source={{ uri: item.uri }} style={styles.resultThumb as any} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.thumbTitle} numberOfLines={2}>
                   {item.title}
@@ -1489,6 +1448,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  heroWrap: {
+    position: 'relative',
+    marginBottom: DS.space.lg,
+  },
+  heroEditBtn: {
+    position: 'absolute',
+    top: DS.space.md,
+    right: DS.space.md,
+    zIndex: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: DS.color.surfaceFloating92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: DS.color.borderHairline,
+  },
+  heroPlaceholder: {
+    marginBottom: DS.space.lg,
+    paddingVertical: DS.space.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DS.space.sm,
+    borderWidth: 1,
+    borderColor: DS.color.cardBorder,
+    borderRadius: DS.radius.lg,
+    borderStyle: 'dashed',
+  },
+  heroPlaceholderText: {
+    fontFamily: DS.font.bodyMedium,
+    fontSize: 14,
+    color: DS.color.gold,
+  },
   hero: {
     alignSelf: 'stretch',
     width: '100%',
@@ -1497,7 +1490,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: DS.color.surface,
-    marginBottom: DS.space.lg,
+    marginBottom: 0,
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
@@ -1598,16 +1591,32 @@ const styles = StyleSheet.create({
     marginBottom: DS.space.lg,
   },
   thumbWrap: {
-    aspectRatio: 16 / 9,
+    aspectRatio: 1,
     borderRadius: DS.radius.xxl,
     overflow: 'hidden',
     backgroundColor: DS.color.surface,
     marginBottom: DS.space.sm,
+    position: 'relative',
+  },
+  thumbMediaFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  thumbVideoPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#141414',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thumbImg: {
     width: '100%',
     height: '100%',
-    opacity: 0.85,
+    opacity: 0.92,
+  },
+  thumbMeta: {
+    fontSize: 12,
+    color: DS.color.textMuted,
+    lineHeight: 16,
+    marginTop: 2,
   },
   thumbDur: {
     position: 'absolute',
@@ -1775,16 +1784,57 @@ const styles = StyleSheet.create({
     paddingBottom: DS.space.sm,
   },
   playerStage: {
-    height: 280,
+    width: '100%',
     backgroundColor: DS.color.black,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: DS.space.md,
+  },
+  playerVideoFrame: {
+    width: '100%',
+    maxWidth: 720,
+    aspectRatio: 16 / 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+    overflow: 'hidden',
+  },
+  playerVideo: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  playerVideoWeb: {
+    width: '100%',
+    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
+    // Web-only CSS properties; keep loose to satisfy RN style typing.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  playerVideoWebInner: {
+    objectFit: 'contain',
+    backgroundColor: '#000',
+  } as any,
+  playerVideoPoster: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
   },
   playerImg: {
     width: '100%',
     height: '100%',
     alignSelf: 'center',
+  },
+  playerDetailBlock: {
+    fontFamily: DS.font.body,
+    fontSize: 15,
+    lineHeight: 22,
+    color: DS.color.text,
+    marginTop: DS.space.md,
   },
   playerOverlay: {
     ...StyleSheet.absoluteFillObject,

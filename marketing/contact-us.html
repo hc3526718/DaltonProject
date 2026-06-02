@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Dalton Grant Academy — Contact</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="shared/theme.css" />
+    <style>
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: radial-gradient(900px 600px at 20% 0%, rgba(200, 168, 75, 0.15), transparent 55%), var(--demo-bg);
+        color: var(--demo-text);
+      }
+      .contact-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.2s ease, transform 0.2s ease;
+      }
+      .contact-card:hover {
+        border-color: rgba(200, 168, 75, 0.55);
+        transform: translateY(-2px);
+      }
+      .contact-card:focus-visible {
+        outline: 2px solid rgba(200, 168, 75, 0.7);
+        outline-offset: 3px;
+      }
+      .contact-eta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(200, 168, 75, 0.35);
+        background: rgba(200, 168, 75, 0.08);
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--demo-mist, #e8e4dc);
+      }
+      .contact-best-for {
+        margin: 0;
+        padding-left: 1.1rem;
+        list-style: disc;
+      }
+      .contact-best-for li {
+        margin-top: 0.35rem;
+        font-size: 0.8125rem;
+        line-height: 1.45;
+        color: var(--demo-dim, #9a9588);
+      }
+      .contact-card-cta {
+        margin-top: auto;
+        padding-top: 1.25rem;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased dalton-marketing">
+    <div id="dalton-staggered-menu"></div>
+    <main class="mx-auto max-w-3xl px-5 pt-20 pb-12">
+      <p class="font-bebas text-gold tracking-[0.24em] text-sm">CONTACT</p>
+      <h1 class="font-bebas text-4xl text-mist mt-2">How can we help?</h1>
+      <p class="text-dim mt-4 leading-relaxed">
+        Pick the channel that fits your question. Both are available here on the web and in the app under
+        <strong class="text-mist font-medium">Profile → Settings → Support</strong>.
+      </p>
+
+      <div class="mt-10 grid gap-5 sm:grid-cols-2">
+        <a href="contact-team.html" class="contact-card rounded-2xl border border-line bg-panel p-6 md:p-7">
+          <p class="font-bebas text-gold tracking-[0.2em] text-sm">EMAIL SUPPORT</p>
+          <h2 class="font-bebas text-mist text-2xl mt-2">Talk to the team</h2>
+          <p class="text-dim text-sm mt-3 leading-relaxed">
+            Send a message through our secure contact form. We do not publish a public inbox — replies go to the email on
+            your academy account.
+          </p>
+          <p class="mt-4">
+            <span class="contact-eta" aria-label="Typical response time">⏱ Response ETA: 24–48 hours</span>
+          </p>
+          <p class="text-mist text-xs font-semibold uppercase tracking-wide mt-5">Recommended for</p>
+          <ul class="contact-best-for">
+            <li>Detailed or multi-step problems (billing, refunds, account access)</li>
+            <li>Privacy &amp; data requests (GDPR export / deletion)</li>
+            <li>Safety, moderation, and verification that needs a human review</li>
+            <li>Feedback, partnerships, or anything you want documented on our side</li>
+          </ul>
+          <p class="contact-card-cta text-gold text-sm font-semibold">Open email support →</p>
+        </a>
+
+        <a href="contact-assistant.html" class="contact-card rounded-2xl border border-line bg-panel p-6 md:p-7">
+          <p class="font-bebas text-gold tracking-[0.2em] text-sm">AI SUPPORT</p>
+          <h2 class="font-bebas text-mist text-2xl mt-2">Dalton assistant</h2>
+          <p class="text-dim text-sm mt-3 leading-relaxed">
+            Chat with our AI assistant for instant answers — trained on the Help centre, academy policies, and how the
+            app works on web and iOS.
+          </p>
+          <p class="mt-4">
+            <span class="contact-eta" aria-label="Typical response time">⚡ Response ETA: under 1 minute</span>
+          </p>
+          <p class="text-mist text-xs font-semibold uppercase tracking-wide mt-5">Recommended for</p>
+          <ul class="contact-best-for">
+            <li>Simple how-to questions (events, media, profile, settings)</li>
+            <li>Finding features or learning what the academy offers</li>
+            <li>Quick policy or subscription summaries</li>
+            <li>Deciding whether you need email support for a harder issue</li>
+          </ul>
+          <p class="contact-card-cta text-gold text-sm font-semibold">Open AI assistant →</p>
+        </a>
+      </div>
+
+      <p class="text-dim text-xs mt-10 leading-relaxed">
+        Not sure? Start with the <strong class="text-mist font-medium">AI assistant</strong> — it will point you to email
+        support when a human is needed.
+      </p>
+    </main>
+    <script src="shared/marketing-chrome.js"></script>
+    <script src="shared/site-footer.js"></script>
+  </body>
+</html>

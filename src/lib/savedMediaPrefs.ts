@@ -1,4 +1,5 @@
 import { fetchUserPrefsDoc, patchUserPrefsDoc, type UserPrefsDoc } from '../roadmap/userSettingsService';
+import { notifySavedMediaChange } from './savedMediaEvents';
 
 const MAX_SAVED = 120;
 
@@ -23,7 +24,9 @@ export async function toggleSavedMediaId(userId: string, mediaId: string): Promi
     }
   }
   const patch: Partial<UserPrefsDoc> = { saved_media_ids: [...set] };
-  return patchUserPrefsDoc(userId, patch);
+  const ok = await patchUserPrefsDoc(userId, patch);
+  if (ok) notifySavedMediaChange();
+  return ok;
 }
 
 export async function isMediaIdSaved(userId: string, mediaId: string): Promise<boolean> {

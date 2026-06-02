@@ -102,7 +102,7 @@ export async function loadAccessibilityPrefs(): Promise<AccessibilityPrefs> {
     for (const k of KEYS) {
       if (k === 'textScaleLevel' && typeof o[k] === 'number') {
         out.textScaleLevel = o[k] as TextScaleLevel;
-      } else if (typeof o[k] === 'boolean') {
+      } else if (k !== 'textScaleLevel' && typeof o[k] === 'boolean') {
         out[k] = o[k] as boolean;
       }
     }

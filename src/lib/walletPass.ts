@@ -1,8 +1,8 @@
 /**
  * Client helper: download a signed .pkpass and open the Apple Wallet sheet (iOS only).
  */
-import * as FileSystem from 'expo-file-system';
-import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Platform, Alert } from 'react-native';
 import { getSupabase } from './supabase';
 import { getSupabaseUrl } from './env';
@@ -64,7 +64,7 @@ export async function addEventPassToAppleWallet(input: WalletPassInput): Promise
       await FileSystem.writeAsStringAsync(passPath, b64, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      await Linking.openURL(passPath);
+      await presentPkPass(passPath);
       return;
     }
 
@@ -72,7 +72,7 @@ export async function addEventPassToAppleWallet(input: WalletPassInput): Promise
     if (json.signedUrl) {
       const passPath = `${FileSystem.cacheDirectory}event-${input.bookingId}.pkpass`;
       await FileSystem.downloadAsync(json.signedUrl, passPath);
-      await Linking.openURL(passPath);
+      await presentPkPass(passPath);
       return;
     }
 
@@ -80,4 +80,17 @@ export async function addEventPassToAppleWallet(input: WalletPassInput): Promise
   } catch (e) {
     Alert.alert('Apple Wallet', e instanceof Error ? e.message : 'Something went wrong.');
   }
+}
+
+/** Opens the system share sheet so iOS can offer "Add to Apple Wallet". */
+async function presentPkPass(fileUri: string): Promise<void> {
+  if (!(await Sharing.isAvailableAsync())) {
+    Alert.alert('Apple Wallet', 'Could not open the pass on this device.');
+    return;
+  }
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'application/vnd.apple.pkpass',
+    UTI: 'com.apple.pkpass',
+    dialogTitle: 'Add to Apple Wallet',
+  });
 }

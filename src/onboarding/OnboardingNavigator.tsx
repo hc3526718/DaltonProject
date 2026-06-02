@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,7 +13,6 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { FontAwesome5 } from '@expo/vector-icons';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { AppleHeroButton } from '../components/AppleHeroButton';
@@ -22,9 +21,8 @@ import { DS } from '../designSystem';
 import { capitalizeProfileTag, capitalizeProfileTags } from '../lib/capitalizeProfileTags';
 import { getSupabase } from '../lib/supabase';
 import type { OnboardingStackParamList } from '../navigation/types';
-import { BOOT_USE_RIVE, getDaltonBootRiveDisplayMode } from '../constants/riveBoot';
-import { BouncingBrandLogo } from '../components/BouncingBrandLogo';
-import { DaltonBootRiveDisplay } from '../components/DaltonBootRiveDisplay';
+import { DALTON_BOOT_VIDEO_BG } from '../constants/daltonBootVideo';
+import { BootCircleLoader } from '../components/BootCircleLoader';
 import { UsernameSetupFields, canProceedWithUsername } from '../components/UsernameSetupFields';
 import {
   allocateAutoUsername,
@@ -82,28 +80,8 @@ function useOnboardingCtx() {
   return v;
 }
 
-/** Expo Go uses WebView embed when display mode is `embed`; otherwise bounce. */
-function OnboardingCompleteRive({
-  riveFailed,
-  onRiveFailed,
-}: {
-  riveFailed: boolean;
-  onRiveFailed: () => void;
-}) {
-  const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-  if (riveFailed || !BOOT_USE_RIVE) {
-    return <BouncingBrandLogo width={180} height={180} />;
-  }
-  if (isExpoGo && getDaltonBootRiveDisplayMode() !== 'embed') {
-    return <BouncingBrandLogo width={180} height={180} />;
-  }
-  return (
-    <DaltonBootRiveDisplay
-      style={{ width: 220, height: 220, maxWidth: '90%' }}
-      onNativeError={() => onRiveFailed()}
-      onEmbedError={() => onRiveFailed()}
-    />
-  );
+function OnboardingCompleteLoader() {
+  return <BootCircleLoader size={64} compact />;
 }
 
 type Props = { onFinished: () => void };
@@ -143,6 +121,7 @@ export function OnboardingNavigator({ onFinished }: Props) {
         <Stack.Screen name="OnboardingSports" component={SportsStep} />
         <Stack.Screen name="OnboardingInterests" component={InterestsStep} />
         <Stack.Screen name="OnboardingDiscovery" component={DiscoveryStep} />
+        <Stack.Screen name="OnboardingMembership" component={MembershipStep} />
         <Stack.Screen name="OnboardingComplete" component={CompleteStep} />
       </Stack.Navigator>
     </Ctx.Provider>
@@ -295,9 +274,7 @@ function RoleStep({ navigation }: StepProps<'OnboardingRole'>) {
             style={styles.footerHalf}
             onPress={() =>
               navigation.navigate(
-                showCompeteOrCoachSportStep(draft.personaRole)
-                  ? 'OnboardingSports'
-                  : 'OnboardingInterests',
+                draft.personaRole === 'coach' ? 'OnboardingSports' : 'OnboardingInterests',
               )
             }
           >
@@ -349,9 +326,7 @@ function SportsStep({ navigation }: StepProps<'OnboardingSports'>) {
           <AppleHeroButton
             disabled={!draft.primarySport}
             style={styles.footerHalf}
-            onPress={() =>
-              navigation.navigate(draft.personaRole === 'athlete' ? 'OnboardingInterests' : 'OnboardingDiscovery')
-            }
+            onPress={() => navigation.navigate('OnboardingDiscovery')}
           >
             Continue
           </AppleHeroButton>
@@ -383,6 +358,8 @@ function SportsStep({ navigation }: StepProps<'OnboardingSports'>) {
 function InterestsStep({ navigation }: StepProps<'OnboardingInterests'>) {
   const { draft, setDraft } = useOnboardingCtx();
   const canNext = draft.interests.length > 0;
+  const nextRoute =
+    draft.personaRole === 'athlete' ? 'OnboardingSports' : 'OnboardingDiscovery';
   return (
     <StepChrome
       title="What are you interested in?"
@@ -395,7 +372,7 @@ function InterestsStep({ navigation }: StepProps<'OnboardingInterests'>) {
           <AppleHeroButton
             disabled={!canNext}
             style={styles.footerHalf}
-            onPress={() => navigation.navigate('OnboardingDiscovery')}
+            onPress={() => navigation.navigate(nextRoute)}
           >
             Continue
           </AppleHeroButton>
@@ -425,7 +402,7 @@ function DiscoveryStep({ navigation }: StepProps<'OnboardingDiscovery'>) {
           <AppleHeroButton
             disabled={!draft.discoverySource}
             style={styles.footerHalf}
-            onPress={() => navigation.navigate('OnboardingComplete')}
+            onPress={() => navigation.navigate('OnboardingMembership')}
           >
             Continue
           </AppleHeroButton>
@@ -451,12 +428,38 @@ function DiscoveryStep({ navigation }: StepProps<'OnboardingDiscovery'>) {
   );
 }
 
+function MembershipStep({ navigation }: StepProps<'OnboardingMembership'>) {
+  return (
+    <StepChrome
+      title="Academy access"
+      subtitle="After you save your profile, a small monthly fee keeps the app running and funds high-quality content from Dalton — plus a community of aspiring athletes who support, encourage, and guide each other."
+      footer={
+        <View style={styles.footerRow}>
+          <AppleHeroButton variant="ghost" style={styles.footerHalf} onPress={() => navigation.goBack()}>
+            Back
+          </AppleHeroButton>
+          <AppleHeroButton
+            style={styles.footerHalf}
+            onPress={() => navigation.navigate('OnboardingComplete')}
+          >
+            Continue
+          </AppleHeroButton>
+        </View>
+      }
+    >
+      <Text style={styles.membershipBody}>
+        Your £2/month subscription unlocks media, events, sponsors, and the full community feed. You can cancel
+        anytime in your device or account settings.
+      </Text>
+    </StepChrome>
+  );
+}
+
 function CompleteStep({ navigation }: StepProps<'OnboardingComplete'>) {
   const insets = useSafeAreaInsets();
   const { draft, onFinished, resetDraft } = useOnboardingCtx();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [riveFailed, setRiveFailed] = useState(false);
 
   const saveAndEnter = useCallback(async () => {
     const supabase = getSupabase();
@@ -501,7 +504,7 @@ function CompleteStep({ navigation }: StepProps<'OnboardingComplete'>) {
         first_name: draft.firstName.trim(),
         last_name: draft.lastName.trim(),
         display_name: displayName,
-        persona_role: draft.personaRole,
+        persona_role: capitalizeProfileTag(draft.personaRole),
         sports: capitalizeProfileTags(draft.sports),
         primary_sport: capitalizeProfileTag(draft.primarySport || (draft.sports[0] ?? '')),
         interests: capitalizeProfileTags(interestsForDb),
@@ -534,15 +537,14 @@ function CompleteStep({ navigation }: StepProps<'OnboardingComplete'>) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.riveBlock}>
-          <OnboardingCompleteRive riveFailed={riveFailed} onRiveFailed={() => setRiveFailed(true)} />
+          <OnboardingCompleteLoader />
         </View>
         <Text style={styles.completeTitle}>You&apos;re in</Text>
         <Text style={styles.completeBody}>
-          Welcome to the premium experience. Tutorial flows and deeper profile customization will arrive in a future
-          update — for now, dive into the community.
+          Save your profile, then complete the quick academy access step to enter the community.
         </Text>
         <AppleHeroButton loading={saving} onPress={() => void saveAndEnter()} style={styles.enterBtn}>
-          Enter the community
+          Save profile & continue
         </AppleHeroButton>
         <Pressable
           onPress={() => {
@@ -584,6 +586,12 @@ const styles = StyleSheet.create({
     color: DS.color.textMuted,
     lineHeight: 22,
     marginBottom: DS.space.xl,
+  },
+  membershipBody: {
+    fontFamily: DS.font.body,
+    fontSize: 15,
+    color: DS.color.textMuted,
+    lineHeight: 22,
   },
   field: { marginBottom: DS.apple.fieldGap },
   label: {
@@ -656,7 +664,7 @@ const styles = StyleSheet.create({
   choiceTextOn: { fontFamily: DS.font.bodyMedium, color: DS.color.gold },
   completeRoot: {
     flex: 1,
-    backgroundColor: DS.color.background,
+    backgroundColor: DALTON_BOOT_VIDEO_BG,
     paddingHorizontal: DS.space.lg,
     paddingTop: 56,
     alignItems: 'center',
@@ -667,6 +675,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: DS.space.lg,
+    backgroundColor: DALTON_BOOT_VIDEO_BG,
   },
   completeTitle: {
     fontFamily: DS.font.heading,

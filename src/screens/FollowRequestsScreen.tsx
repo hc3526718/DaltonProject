@@ -42,7 +42,7 @@ export function FollowRequestsScreen({ navigation }: Props) {
   const [outgoing, setOutgoing] = useState<FollowRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const live = isSupabaseConfigured() && user && !user.id.startsWith('demo-');
+  const live = Boolean(isSupabaseConfigured() && user && !user.id.startsWith('demo-'));
 
   const fetchListsOnly = useCallback(async () => {
     if (!live || !user) return;

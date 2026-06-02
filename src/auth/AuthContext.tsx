@@ -22,6 +22,7 @@ import {
 } from './oauthSupabase';
 import { authAlert } from './authAlert';
 import { AUTH_BOOT_UNLOCK_MS, AUTH_GET_SESSION_TIMEOUT_MS } from '../constants/bootTiming';
+import { warmDaltonBootVideoCache } from '../constants/daltonBootVideo';
 import { setAllowMessagesFrom } from '../messaging/messagingPrefs';
 import { ensureProfileRow, fetchProfileByUserId } from '../roadmap/profileService';
 import { captureAuthSessionTimeout } from '../monitoring/sentryBoot';
@@ -148,6 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [oAuthBusy, setOAuthBusy] = useState(false);
   const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false);
 
+  /** Preload auth hero video while logged out (web preload + native hidden player). */
+  useEffect(() => {
+    if (ready && !user) warmDaltonBootVideoCache();
+  }, [ready, user]);
+
   useEffect(() => {
     if (!supabase) {
       setReady(true);
@@ -192,7 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void ensureProfileRow(session.user.id, session.user.email ?? null);
         void hydrateDmPolicy(session.user.id);
         void syncProfileFlags(session.user.id);
-        void import('../lib/pushRegistration').then((m) => m.tryRegisterPushToken(session.user.id));
+        void import('../lib/pushRegistration').then((m) =>
+          m.schedulePushRegistration(session.user.id),
+        );
         void (async () => {
           try {
             await ensureDefaultDaltonVerifiedMetadata(supabase);

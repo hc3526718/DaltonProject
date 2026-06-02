@@ -2,8 +2,21 @@ import { Platform } from 'react-native';
 import { DS } from '../designSystem';
 import type { AccessibilityPrefs } from './accessibilityPrefs';
 
-export type AccessibleColors = typeof DS.color & {
+/**
+ * `DS.color` is defined `as const`, so `typeof DS.color` would otherwise infer
+ * *literal* string types (e.g. `background` must be exactly "#0A0A0A").
+ * For accessibility variants we intentionally widen these to plain strings.
+ */
+export type AccessibleColors = {
+  [K in keyof typeof DS.color]: string;
+} & {
   emphasisBorder: string;
+  /** Used in some screens as a softer label color. */
+  textSubtle: string;
+  /** Stronger border for high-contrast mode. */
+  borderStrong: string;
+  /** Stronger panel fill for high-contrast mode. */
+  panelStrong: string;
 };
 
 const CONTRAST = {

@@ -5,6 +5,13 @@ import { isSupabaseConfigured } from '../lib/env';
 import { getSupabase } from '../lib/supabase';
 import { openCommunityMessageThread, openCommunityMessagesInbox } from '../navigation/rootNavigationRef';
 import type { InAppNotification } from '../roadmap/notificationsService';
+import {
+  isInAppBannerAllowed,
+  loadInAppNotifyPrefs,
+} from '../lib/notificationBannerPrefs';
+import { isPushDeliveryEnabled } from '../lib/pushPrefsGate';
+import { isMasterControlUser } from '../lib/notifyPrefsAccess';
+import { fetchUserPrefsDoc } from '../roadmap/userSettingsService';
 import { listInAppNotifications } from '../roadmap/notificationsService';
 
 function isDmLikeNotification(n: Pick<InAppNotification, 'title' | 'link_type'>): boolean {
@@ -43,7 +50,17 @@ export function ConversationInAppAlerts() {
   const alertedIdsRef = useRef<Set<string>>(new Set());
   const prevUserRef = useRef<string | null>(null);
 
-  const showThreadAlert = useCallback((n: InAppNotification) => {
+  const showThreadAlert = useCallback(async (n: InAppNotification) => {
+    const prefs = await loadInAppNotifyPrefs();
+    const isMaster = isMasterControlUser(user);
+    if (!isInAppBannerAllowed('messages', prefs, isMaster)) return;
+
+    if (user?.id && !user.id.startsWith('demo-')) {
+      const doc = await fetchUserPrefsDoc(user.id);
+      if (doc.notification_channels?.push === false) return;
+      if (!isPushDeliveryEnabled()) return;
+    }
+
     const title = n.title?.trim() || 'New message';
     const subtitle = (n.body ?? '').trim();
     buzz();
@@ -56,7 +73,7 @@ export function ConversationInAppAlerts() {
         },
       },
     ]);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.id || user.id.startsWith('demo-') || !isSupabaseConfigured()) {
@@ -77,7 +94,7 @@ export function ConversationInAppAlerts() {
         const unreadDm = rows.find((n) => !n.read_at && isDmLikeNotification(n) && (n.link_id ?? '').trim());
         if (!unreadDm || alertedIdsRef.current.has(unreadDm.id)) return;
         alertedIdsRef.current.add(unreadDm.id);
-        showThreadAlert(unreadDm);
+        void showThreadAlert(unreadDm);
       });
     }
 
@@ -98,7 +115,7 @@ export function ConversationInAppAlerts() {
           if (!isDmLikeNotification(row)) return;
           if (AppState.currentState !== 'active') return;
           alertedIdsRef.current.add(row.id);
-          showThreadAlert(row);
+          void showThreadAlert(row);
         },
       )
       .subscribe();

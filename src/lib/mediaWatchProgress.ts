@@ -34,6 +34,10 @@ export async function getMediaWatchProgress(mediaId: string): Promise<MediaWatch
 }
 
 export async function setMediaWatchProgress(entry: Omit<MediaWatchEntry, 'updatedAt'>): Promise<void> {
+  if (entry.progress >= 0.98) {
+    await clearMediaWatchProgress(entry.mediaId);
+    return;
+  }
   const store = await readStore();
   store[entry.mediaId] = { ...entry, updatedAt: Date.now() };
   await writeStore(store);
@@ -45,11 +49,38 @@ export async function clearMediaWatchProgress(mediaId: string): Promise<void> {
   await writeStore(store);
 }
 
+function isDemoMediaId(mediaId: string): boolean {
+  return mediaId.startsWith('demo:');
+}
+
+/** Drop stale / demo entries; pass known live `media_assets` ids when available. */
+export async function pruneContinueWatching(validMediaIds?: Set<string>): Promise<void> {
+  const store = await readStore();
+  let changed = false;
+  for (const [id, entry] of Object.entries(store)) {
+    if (isDemoMediaId(id) || isDemoMediaId(entry.mediaId)) {
+      delete store[id];
+      changed = true;
+      continue;
+    }
+    if (validMediaIds && !validMediaIds.has(id)) {
+      delete store[id];
+      changed = true;
+    }
+  }
+  if (changed) await writeStore(store);
+}
+
 /** In progress: started but not finished (< 98%). */
 export async function listContinueWatching(): Promise<MediaWatchEntry[]> {
   const store = await readStore();
   return Object.values(store)
-    .filter((e) => e.progress > 0.02 && e.progress < 0.98)
+    .filter(
+      (e) =>
+        !isDemoMediaId(e.mediaId) &&
+        e.progress > 0.02 &&
+        e.progress < 0.98,
+    )
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 

@@ -121,6 +121,67 @@ export async function masterGrantDaltonVerified(
 }
 
 /** Requires deployed Edge Function `master-delete-user` + `SUPABASE_SERVICE_ROLE_KEY` secret. */
+export type MasterUserAccountRow = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  persona_role: string | null;
+  created_at: string | null;
+  suspended_until: string | null;
+  suspended_permanent: boolean;
+  master_control: string | null;
+};
+
+export async function listMasterUserAccounts(limit = 300): Promise<MasterUserAccountRow[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('list_master_user_accounts', { p_limit: limit });
+  if (error || !data) return [];
+  return data as MasterUserAccountRow[];
+}
+
+export async function masterSuspendUser(
+  targetUserId: string,
+  pin: string,
+  opts: {
+    hours?: number;
+    days?: number;
+    weeks?: number;
+    permanent?: boolean;
+    clear?: boolean;
+  },
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, message: 'Supabase is not configured.' };
+  const { data, error } = await supabase.rpc('master_suspend_user', {
+    target_user_id: targetUserId,
+    pin,
+    suspend_hours: opts.hours ?? null,
+    suspend_days: opts.days ?? null,
+    suspend_weeks: opts.weeks ?? null,
+    permanent: opts.permanent === true,
+    clear_suspension: opts.clear === true,
+  });
+  if (error) {
+    const msg = error.message ?? 'Could not update suspension.';
+    if (msg.includes('invalid_suspend_duration')) {
+      return { ok: false, message: 'Choose a suspension period (hours, days, or weeks).' };
+    }
+    if (msg.includes('cannot_suspend_self')) {
+      return { ok: false, message: 'You cannot suspend your own account.' };
+    }
+    if (msg.includes('invalid_pin') || msg.includes('verify_master_pin')) {
+      return { ok: false, message: 'Incorrect PIN.' };
+    }
+    return { ok: false, message: msg };
+  }
+  if (data === true) return { ok: true };
+  return { ok: false, message: 'Incorrect PIN or not authorized.' };
+}
+
 export async function masterDeleteUserAccount(
   targetUserId: string,
   pin: string,

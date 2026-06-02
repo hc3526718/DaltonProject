@@ -10,11 +10,23 @@ import {
 } from 'react';
 import { Animated, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../auth/AuthContext';
 import { DS } from '../designSystem';
 import type { AccessibleColors } from '../lib/accessibilityTheme';
+import {
+  isInAppBannerAllowed,
+  loadInAppNotifyPrefs,
+  type InAppNotifyCategory,
+} from '../lib/notificationBannerPrefs';
+import { isMasterControlUser } from '../lib/notifyPrefsAccess';
 import { useThemeStyles } from '../theme/useThemeStyles';
 
-type ShowOptions = { onPress?: () => void; durationMs?: number };
+type ShowOptions = {
+  onPress?: () => void;
+  durationMs?: number;
+  /** When set, respects in-app notification banner toggles for this category. */
+  category?: InAppNotifyCategory;
+};
 
 type ShowFn = (title: string, body?: string, options?: ShowOptions) => void;
 
@@ -22,7 +34,9 @@ const ActionBannerContext = createContext<ShowFn>(() => {});
 
 export function ActionBannerProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const styles = useThemeStyles(createActionBannerStyles);
+  const isMaster = isMasterControlUser(user);
   const translateY = useRef(new Animated.Value(-140)).current;
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState('');
@@ -41,7 +55,7 @@ export function ActionBannerProvider({ children }: { children: ReactNode }) {
     });
   }, [translateY]);
 
-  const show = useCallback(
+  const present = useCallback(
     (t: string, b?: string, options?: ShowOptions) => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       setTitle(t);
@@ -62,6 +76,19 @@ export function ActionBannerProvider({ children }: { children: ReactNode }) {
       hideTimer.current = setTimeout(() => hide(), options?.durationMs ?? 3200);
     },
     [hide, translateY],
+  );
+
+  const show = useCallback(
+    (t: string, b?: string, options?: ShowOptions) => {
+      void (async () => {
+        if (options?.category) {
+          const prefs = await loadInAppNotifyPrefs();
+          if (!isInAppBannerAllowed(options.category, prefs, isMaster)) return;
+        }
+        present(t, b, options);
+      })();
+    },
+    [isMaster, present],
   );
 
   useEffect(() => {

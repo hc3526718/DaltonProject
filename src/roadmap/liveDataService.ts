@@ -327,6 +327,44 @@ export async function searchCommunityPosts(query: string, limit = 40): Promise<C
   return merged.filter((row) => (row.body ?? '').toLowerCase().includes(qLower)).slice(0, limit);
 }
 
+export type CommunityUserSearchRow = {
+  id: string;
+  display_name: string;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+/** Search profiles by username or display name (strip leading @). */
+export async function searchCommunityUsers(
+  query: string,
+  limit = 25,
+): Promise<CommunityUserSearchRow[]> {
+  const supabase = getSupabase();
+  const q = query.trim().replace(/^@+/, '');
+  if (!q) return [];
+  if (!supabase) return [];
+  const pattern = `%${escapeIlike(q)}%`;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, first_name, last_name, avatar_url')
+    .or(
+      `username.ilike.${pattern},display_name.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern}`,
+    )
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id as string,
+    display_name: formatAuthorDisplayName({
+      display_name: row.display_name as string | null,
+      first_name: row.first_name as string | null,
+      last_name: row.last_name as string | null,
+      username: row.username as string | null,
+    }),
+    username: typeof row.username === 'string' ? row.username.trim() || null : null,
+    avatar_url: (row.avatar_url as string | null) ?? null,
+  }));
+}
+
 export async function getEventsByIds(ids: string[]): Promise<Map<string, Pick<EventRow, 'id' | 'title'>>> {
   const out = new Map<string, Pick<EventRow, 'id' | 'title'>>();
   if (isAppStoreScreenshotMode()) {
@@ -395,9 +433,35 @@ export async function getEventById(id: string): Promise<EventRow | null> {
   return data as EventRow;
 }
 
+export function subscribeEventById(eventId: string, onChange: () => void): Unsub {
+  const supabase = getSupabase();
+  if (!supabase) return noopChannel();
+  const channel: RealtimeChannel = supabase
+    .channel(`event-row-${eventId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${eventId}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return () => void supabase.removeChannel(channel);
+}
+
+/** Fan-out push to booked users after an event edit (in-app rows come from DB trigger). */
+export async function invokeNotifyEventAttendees(eventId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.functions.invoke('notify-event-attendees', { body: { event_id: eventId } });
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export type InsertCommunityEventInput = {
   title: string;
   description: string;
+  event_details?: Record<string, unknown> | null;
   starts_at: string;
   ends_at: string | null;
   venue?: string | null;
@@ -419,6 +483,7 @@ export async function insertCommunityEvent(row: InsertCommunityEventInput): Prom
     .insert({
       title: row.title.trim(),
       description: row.description.trim() || null,
+      event_details: row.event_details ?? null,
       starts_at: row.starts_at,
       ends_at: row.ends_at,
       venue: row.venue?.trim() || null,
@@ -447,6 +512,7 @@ export async function deleteCommunityEvent(eventId: string): Promise<boolean> {
 export type UpdateCommunityEventInput = Partial<{
   title: string;
   description: string;
+  event_details: Record<string, unknown> | null;
   starts_at: string;
   ends_at: string | null;
   venue: string | null;
@@ -468,6 +534,7 @@ export async function updateCommunityEvent(
     .update({
       ...(patch.title != null ? { title: patch.title.trim() } : {}),
       ...(patch.description != null ? { description: patch.description.trim() || null } : {}),
+      ...(patch.event_details !== undefined ? { event_details: patch.event_details } : {}),
       ...(patch.starts_at != null ? { starts_at: patch.starts_at } : {}),
       ...(patch.ends_at !== undefined ? { ends_at: patch.ends_at } : {}),
       ...(patch.venue !== undefined ? { venue: patch.venue?.trim() || null } : {}),
@@ -605,7 +672,19 @@ export async function deleteMediaAsset(assetId: string): Promise<boolean> {
 }
 
 export type UpdateMediaAssetPatch = Partial<
-  Pick<MediaAssetRow, 'title' | 'description' | 'tags' | 'thumbnail_url' | 'public_url' | 'mime_type' | 'kind'>
+  Pick<
+    MediaAssetRow,
+    | 'title'
+    | 'description'
+    | 'tags'
+    | 'thumbnail_url'
+    | 'public_url'
+    | 'mime_type'
+    | 'kind'
+    | 'series_title'
+    | 'series_part'
+    | 'featured_series'
+  >
 >;
 
 export async function updateMediaAsset(assetId: string, patch: UpdateMediaAssetPatch): Promise<MediaAssetRow | null> {
@@ -622,10 +701,122 @@ export async function updateMediaAsset(assetId: string, patch: UpdateMediaAssetP
       ...(patch.public_url !== undefined ? { public_url: patch.public_url?.trim() || null } : {}),
       ...(patch.mime_type !== undefined ? { mime_type: patch.mime_type?.trim() || null } : {}),
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+      ...(patch.series_title !== undefined ? { series_title: patch.series_title?.trim() || null } : {}),
+      ...(patch.series_part !== undefined
+        ? { series_part: patch.series_part != null ? patch.series_part : null }
+        : {}),
+      ...(patch.featured_series !== undefined ? { featured_series: !!patch.featured_series } : {}),
     })
     .eq('id', assetId)
     .select()
     .single();
+  if (error || !data) return null;
+  return data as MediaAssetRow;
+}
+
+export type MediaSeriesOption = {
+  seriesTitle: string;
+  partCount: number;
+  featured: boolean;
+};
+
+/** Distinct series titles for master featured-series picker. */
+export async function listMediaSeriesOptions(): Promise<{
+  options: MediaSeriesOption[];
+  featuredSeriesTitle: string | null;
+}> {
+  const supabase = getSupabase();
+  if (!supabase) return { options: [], featuredSeriesTitle: null };
+  const { data, error } = await supabase
+    .from('media_assets')
+    .select('series_title, series_part, featured_series')
+    .is('post_id', null)
+    .not('series_title', 'is', null);
+  if (error || !data?.length) return { options: [], featuredSeriesTitle: null };
+
+  const byTitle = new Map<string, { count: number; featured: boolean }>();
+  let featuredSeriesTitle: string | null = null;
+  for (const row of data as Pick<MediaAssetRow, 'series_title' | 'featured_series'>[]) {
+    const t = row.series_title?.trim();
+    if (!t) continue;
+    const cur = byTitle.get(t) ?? { count: 0, featured: false };
+    cur.count += 1;
+    if (row.featured_series) {
+      cur.featured = true;
+      featuredSeriesTitle = t;
+    }
+    byTitle.set(t, cur);
+  }
+  const options = [...byTitle.entries()]
+    .map(([seriesTitle, v]) => ({
+      seriesTitle,
+      partCount: v.count,
+      featured: v.featured,
+    }))
+    .sort((a, b) => a.seriesTitle.localeCompare(b.seriesTitle));
+  return { options, featuredSeriesTitle };
+}
+
+/** Mark one series as featured (clears others). Pass null to clear featured hero. */
+export async function setFeaturedMediaSeries(seriesTitle: string | null): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  await supabase.from('media_assets').update({ featured_series: false }).eq('featured_series', true);
+  const title = seriesTitle?.trim();
+  if (!title) return true;
+  const { data: parts } = await supabase
+    .from('media_assets')
+    .select('id, series_part')
+    .eq('series_title', title)
+    .order('series_part', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(1);
+  const headId = (parts?.[0] as { id?: string } | undefined)?.id;
+  if (!headId) return false;
+  const { error } = await supabase
+    .from('media_assets')
+    .update({ featured_series: true })
+    .eq('id', headId);
+  return !error;
+}
+
+/** Other videos in the same series (ordered), excluding current id. */
+export async function listMediaInSeries(
+  seriesTitle: string,
+  excludeMediaId?: string,
+  limit = 12,
+): Promise<MediaAssetRow[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const title = seriesTitle.trim();
+  if (!title) return [];
+  let q = supabase
+    .from('media_assets')
+    .select('*')
+    .is('post_id', null)
+    .eq('series_title', title)
+    .order('series_part', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  if (excludeMediaId) q = q.neq('id', excludeMediaId);
+  const { data, error } = await q;
+  if (error) return [];
+  return (data ?? []) as MediaAssetRow[];
+}
+
+/** Head video for the featured series hero, if configured. */
+export async function getFeaturedSeriesHead(): Promise<MediaAssetRow | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('media_assets')
+    .select('*')
+    .is('post_id', null)
+    .eq('featured_series', true)
+    .order('series_part', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
   if (error || !data) return null;
   return data as MediaAssetRow;
 }
@@ -639,12 +830,13 @@ export async function listBrowseMediaAssets(limit = 80): Promise<MediaAssetRow[]
   const { data, error } = await supabase
     .from('media_assets')
     .select('*')
+    .is('post_id', null)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) {
     return isAppStoreScreenshotMode() ? getScreenshotSampleMediaAssets().slice(0, limit) : [];
   }
-  const rows = (data ?? []) as MediaAssetRow[];
+  const rows = ((data ?? []) as MediaAssetRow[]).filter((r) => !r.post_id);
   if (!isAppStoreScreenshotMode()) return rows;
   return mergeScreenshotMedia(rows).slice(0, limit);
 }

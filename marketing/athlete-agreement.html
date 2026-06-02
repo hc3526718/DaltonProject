@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Dalton Grant Academy — Athlete Agreement</title>
+    <meta name="description" content="Program terms for athletes using The Dalton Grant Academy events, community, and training features." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="shared/site-transition.css" />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { ink: "#0A0A0A", gold: "#C8A84B", mist: "#D4D0C8", dim: "#9A9690", line: "rgba(255,255,255,0.09)", panel: "rgba(255,255,255,0.04)" },
+            fontFamily: { bebas: ['"Bebas Neue"', "sans-serif"], sans: ['"DM Sans"', "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: radial-gradient(1100px 820px at 12% -10%, rgba(200, 168, 75, 0.18), transparent 60%), var(--demo-bg);
+        color: var(--demo-text);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased dalton-marketing">
+    <div id="dalton-staggered-menu"></div>
+    <main class="mx-auto max-w-5xl px-5 pt-20 pb-10">
+      <div class="rounded-3xl border border-line bg-panel p-6 md:p-10">
+        <p class="font-bebas text-gold tracking-[0.24em] text-sm">ATHLETE AGREEMENT</p>
+        <h1 class="font-bebas text-4xl md:text-5xl text-mist mt-2">Grant Access Program terms</h1>
+        <p class="text-dim mt-4 max-w-3xl leading-relaxed">
+          By participating in The Dalton Grant Academy as an athlete or member, you agree to these program terms in addition to our
+          Terms of Service and Privacy Policy. Have counsel review before launch.
+        </p>
+        <div class="mt-10 space-y-8 leading-relaxed text-dim">
+          <section>
+            <h2 class="text-mist font-semibold text-lg">1. Eligibility & conduct</h2>
+            <p class="mt-2">
+              You must provide accurate profile information, respect other members, and follow event and community
+              rules set by hosts and Dalton administrators.
+            </p>
+          </section>
+          <section>
+            <h2 class="text-mist font-semibold text-lg">2. Events & bookings</h2>
+            <p class="mt-2">
+              Event attendance, ticketing, and refunds are governed by the host’s policies and applicable law. Grant
+              Access facilitates discovery and booking but does not guarantee third-party event outcomes.
+            </p>
+          </section>
+          <section>
+            <h2 class="text-mist font-semibold text-lg">3. Content you share</h2>
+            <p class="mt-2">
+              You retain ownership of posts and media you upload. You grant The Dalton Grant Academy a license to display and
+              operate the service (hosting, moderation, backups). Do not upload unlawful or infringing content.
+            </p>
+          </section>
+          <section>
+            <h2 class="text-mist font-semibold text-lg">4. Health & safety</h2>
+            <p class="mt-2">
+              Training and performance features are informational. Consult qualified professionals before changing
+              your training regimen. The Dalton Grant Academy is not a medical provider.
+            </p>
+          </section>
+          <section>
+            <h2 class="text-mist font-semibold text-lg">5. Contact</h2>
+            <p class="mt-2">Questions: use the <a class="text-gold underline decoration-gold/40" href="/contact-us">contact form</a> (we usually reply within 24–48 hours).</p>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer class="mx-auto max-w-5xl px-5 pb-12 pt-8 text-xs text-dim border-t border-line mt-8">
+      <p>© <span id="y"></span> The Dalton Grant Academy</p>
+    </footer>
+    <script>document.getElementById("y").textContent = new Date().getFullYear();</script>
+    <script src="shared/marketing-chrome.js"></script>
+    <script src="shared/site-transition.js"></script>
+  </body>
+</html>

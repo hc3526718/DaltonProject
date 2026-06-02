@@ -129,6 +129,11 @@ export function getRevenueCatEntitlementId(): string {
   return (process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? 'premium').trim() || 'premium';
 }
 
+/** RevenueCat offering lookup key (e.g. `Official Offering`). Avoids Test Store `default` offering. */
+export function getRevenueCatOfferingIdentifier(): string {
+  return (process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_IDENTIFIER ?? 'Official Offering').trim();
+}
+
 /** Supabase Edge Function `master-delete-user` (JWT + master PIN). Requires SERVICE_ROLE in project secrets. */
 export function getMasterDeleteUserEdgeUrl(): string {
   const base = getSupabaseUrl().replace(/\/$/, '');

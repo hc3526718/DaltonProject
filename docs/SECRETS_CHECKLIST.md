@@ -29,7 +29,14 @@ Use this when moving from demo to production. **Roadmap:** `docs/NEXT_STEPS.md` 
 
 ## Tickets / QR
 
-- [ ] Replace `EXPO_PUBLIC_TICKET_SIGNING_SECRET` with a strong secret; mirror on server for `POST /checkin`
+- [ ] Replace `EXPO_PUBLIC_TICKET_SIGNING_SECRET` with a strong secret; mirror on server as **`TICKET_HMAC_SECRET`** (Edge Functions + wallet pass QR)
+
+## Apple Wallet (event passes)
+
+- [ ] Pass Type ID in Apple Developer (e.g. `pass.com.grantaccess.event`)
+- [ ] Pass Type ID certificate → PEM files
+- [ ] Supabase Edge Function secrets: `APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`, `APPLE_WWDR_CERT_PEM`, `APPLE_SIGNER_CERT_PEM`, `APPLE_SIGNER_KEY_PEM` (+ optional `APPLE_SIGNER_KEY_PASSPHRASE`)
+- [ ] Deploy `wallet-generate-pass` and `wallet-passes` (see `docs/WALLET_PASS_SETUP.md`)
 
 ## Optional analytics
 

@@ -21,6 +21,14 @@ export async function registerDevicePushToken(
   return !error;
 }
 
+/** Stop remote push targeting when the user disables push in settings. */
+export async function unregisterDevicePushToken(userId: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const { error } = await supabase.from('device_push_tokens').delete().eq('user_id', userId);
+  return !error;
+}
+
 export type InAppNotification = {
   id: string;
   title: string;

@@ -10,13 +10,14 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
+import { pickLocalImage, pickLocalVideo } from '../lib/pickLocalMedia';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
 import { FormField } from '../components/ui/FormField';
 import { DS } from '../designSystem';
 import { useWizardBack } from '../hooks/useWizardBack';
+import { buildEventDetailsPayload } from '../lib/eventDescriptionParse';
 import { endsAtAfterDuration } from '../lib/eventFormParse';
 import {
   combineDateAndTime,
@@ -25,13 +26,13 @@ import {
   schedule48HourError,
 } from '../lib/scheduleValidation';
 import { getSupabase } from '../lib/supabase';
+import { readLocalFileAsArrayBuffer } from '../lib/readLocalFileBytes';
 import { pickWebMediaFile } from '../lib/webFilePicker';
 import type { EventsStackParamList } from '../navigation/types';
 import { insertCommunityEvent } from '../roadmap/liveDataService';
 import { WizardChrome } from './proposals/WizardChrome';
 import { WebScheduleField } from '../components/WebScheduleField';
 import {
-  entryPaymentBlockForDescription,
   formatEntryPaymentNotice,
   type EntryPaymentMode,
 } from '../lib/eventEntryPayment';
@@ -70,14 +71,15 @@ async function uploadEventHero(userId: string, uri: string): Promise<string | nu
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
-    const blob = await (await fetch(uri)).blob();
+    const body = await readLocalFileAsArrayBuffer(uri);
+    if (body.byteLength === 0) return null;
     const ext = inferImageExt(uri);
     const contentType = inferImageContentType(uri);
     const rand = Math.random().toString(36).slice(2, 8);
     const storage_path = `events/${userId}/hero-${Date.now()}-${rand}.${ext}`;
     const { error } = await supabase.storage
       .from('media_assets')
-      .upload(storage_path, blob, { contentType, upsert: false });
+      .upload(storage_path, body, { contentType, upsert: false });
     if (error) return null;
     const pub = supabase.storage.from('media_assets').getPublicUrl(storage_path);
     return pub.data.publicUrl ?? null;
@@ -164,17 +166,11 @@ export function CreateEventWizard({ navigation }: Props) {
       if (picked?.uri) setAssets((prev) => [...prev, { uri: picked.uri, kind: 'image' }]);
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return;
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.9,
-    });
-    if (res.canceled) return;
+    const picked = await pickLocalImage({ multiple: true, title: 'Event images' });
+    if (!picked.length) return;
     setAssets((prev) => [
       ...prev,
-      ...res.assets.filter((a) => a.uri).map((a) => ({ uri: a.uri, kind: 'image' as const })),
+      ...picked.map((f) => ({ uri: f.uri, kind: 'image' as const })),
     ]);
   }, []);
 
@@ -184,11 +180,10 @@ export function CreateEventWizard({ navigation }: Props) {
       if (picked?.uri) setAssets((prev) => [...prev, { uri: picked.uri, kind: 'video' }]);
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return;
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
-    if (res.canceled || !res.assets[0]?.uri) return;
-    setAssets((prev) => [...prev, { uri: res.assets[0].uri, kind: 'video' }]);
+    const picked = await pickLocalVideo({ title: 'Event video' });
+    const file = picked[0];
+    if (!file) return;
+    setAssets((prev) => [...prev, { uri: file.uri, kind: 'video' }]);
   }, []);
 
   const removeAsset = useCallback((uri: string) => {
@@ -245,9 +240,8 @@ export function CreateEventWizard({ navigation }: Props) {
         }
         const start = combineDateAndTime(eventDate, eventTime);
         if (!isScheduleAtLeast48HoursAhead(start)) return schedule48HourError();
-        if (!costFree) {
-          const n = parseFloat(price.replace(/[^0-9.]/g, ''));
-          if (!price.trim() || Number.isNaN(n) || n < 0) return 'Enter a valid price for paid events.';
+        if (entryPaymentMode === 'payment_on_arrival' && !entryPaymentAmount.trim()) {
+          return 'Enter the payment amount for arrival (e.g. £15).';
         }
       }
       if (s === 4) {
@@ -281,27 +275,21 @@ export function CreateEventWizard({ navigation }: Props) {
     const ends = endsAtAfterDuration(starts, duration);
     const cap = parseInt(maxAttendance.replace(/\D/g, ''), 10);
     const firstImage = sortedAssets.find((a) => a.kind === 'image');
-    const faqLines = faqs
-      .filter((f) => f.q.trim() && f.a.trim())
-      .map((f) => `Q: ${f.q.trim()}\nA: ${f.a.trim()}`);
-    const agendaBlock = completeAgenda.map((row) => `• ${row.time.trim()} — ${row.title.trim()}`).join('\n');
     const scheduleLine = `${formatDate(eventDate)} · ${formatTime(eventTime)}${duration.trim() ? ` · ${duration}` : ''}`;
-    const descParts: string[] = [
-      description.trim(),
-      '',
-      `Level: ${level}`,
-      `Capacity: ${cap}`,
-      `Tags: ${eventTags.trim() || '—'}`,
-      '',
-      'Agenda:',
-      agendaBlock,
-    ];
-    if (faqLines.length > 0) descParts.push('', 'FAQs:', ...faqLines);
-    descParts.push('', `What to bring: ${bring.trim() || '—'}`);
-    descParts.push(
-      entryPaymentBlockForDescription(entryPaymentMode, entryPaymentAmount, entryPaymentNote),
-    );
-    const longDesc = descParts.join('\n');
+    const eventDetails = buildEventDetailsPayload({
+      level,
+      capacity: cap,
+      tags: eventTags.trim() || '—',
+      bring: bring.trim() || '—',
+      duration: duration.trim(),
+      agenda: completeAgenda.map((row) => ({
+        time: row.time.trim(),
+        title: row.title.trim(),
+      })),
+      faqs: faqs
+        .filter((f) => f.q.trim() && f.a.trim())
+        .map((f) => ({ q: f.q.trim(), a: f.a.trim() })),
+    });
     const confirmPayload: ConfirmPayload = {
       title: eventTitle.trim(),
       venue: venue.trim(),
@@ -319,7 +307,8 @@ export function CreateEventWizard({ navigation }: Props) {
       }
       const row = await insertCommunityEvent({
         title: eventTitle.trim(),
-        description: longDesc,
+        description: description.trim(),
+        event_details: eventDetails,
         starts_at: starts,
         ends_at: ends,
         venue: venue.trim(),
@@ -700,6 +689,8 @@ export function CreateEventWizard({ navigation }: Props) {
           {formatDate(eventDate)} · {formatTime(eventTime)}
           {duration.trim() ? ` · ${duration}` : ''}
         </Text>
+        <Text style={s.reviewLabel}>Description</Text>
+        <Text style={s.reviewVal}>{description.trim() || '—'}</Text>
         <Text style={s.reviewLabel}>Venue</Text>
         <Text style={s.reviewVal}>{venue.trim() || '—'}</Text>
         <Text style={s.reviewLabel}>Attendance</Text>

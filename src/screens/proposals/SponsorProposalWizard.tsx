@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../../auth/AuthContext';
 import { DS } from '../../designSystem';
+import { pickLocalImage, pickLocalVideo } from '../../lib/pickLocalMedia';
 import { uploadProposalAttachment } from '../../lib/proposalAttachmentUpload';
 import { masterInstantPublish } from '../../lib/masterInstantPublish';
 import type { SponsorsStackParamList } from '../../navigation/types';
@@ -45,52 +45,30 @@ export function SponsorProposalWizard({ navigation }: Props) {
   );
 
   const pickCover = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setCoverImage({ name: a.name ?? 'cover.jpg', uri: a.uri });
+    const picked = await pickLocalImage({ title: 'Cover image' });
+    const a = picked[0];
+    if (!a) return;
+    setCoverImage({ name: a.name, uri: a.uri });
   }, []);
 
   const pickLogo = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setLogo({ name: a.name ?? 'logo.png', uri: a.uri });
+    const picked = await pickLocalImage({ title: 'Logo' });
+    const a = picked[0];
+    if (!a) return;
+    setLogo({ name: a.name, uri: a.uri });
   }, []);
 
   const pickGallery = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: true,
-      copyToCacheDirectory: true,
-      type: 'image/*',
-    });
-    if (res.canceled) return;
-    setGallery((prev) => [
-      ...prev,
-      ...res.assets.map((a) => ({ name: a.name ?? 'image.jpg', uri: a.uri })),
-    ]);
+    const picked = await pickLocalImage({ multiple: true, title: 'Gallery images' });
+    if (!picked.length) return;
+    setGallery((prev) => [...prev, ...picked.map((a) => ({ name: a.name, uri: a.uri }))]);
   }, []);
 
   const pickVideo = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
-      type: 'video/*',
-    });
-    if (res.canceled) return;
-    const a = res.assets?.[0];
-    if (!a?.uri) return;
-    setVideo({ name: a.name ?? 'video.mp4', uri: a.uri });
+    const picked = await pickLocalVideo({ title: 'Promo video' });
+    const a = picked[0];
+    if (!a) return;
+    setVideo({ name: a.name, uri: a.uri });
   }, []);
 
   const cleanedLinks = useMemo(
@@ -116,22 +94,38 @@ export function SponsorProposalWizard({ navigation }: Props) {
     }
     setPublishing(true);
     setError(null);
-    const uploaded: string[] = [];
     const coverUrl = await uploadProposalAttachment(user.id, 'sponsor', coverImage.uri, coverImage.name);
-    if (coverUrl) uploaded.push(coverUrl);
+    if (!coverUrl) {
+      setPublishing(false);
+      setError('Could not upload cover image. Try photo library or a smaller file.');
+      return;
+    }
 
     const logoUrl = logo
       ? await uploadProposalAttachment(user.id, 'sponsor', logo.uri, logo.name)
       : null;
+    if (logo && !logoUrl) {
+      setPublishing(false);
+      setError('Could not upload logo.');
+      return;
+    }
 
     const galleryUrls: string[] = [];
     for (const img of gallery) {
       const url = await uploadProposalAttachment(user.id, 'sponsor', img.uri, img.name);
       if (url) galleryUrls.push(url);
     }
+
     const videoUrl = video
       ? await uploadProposalAttachment(user.id, 'sponsor', video.uri, video.name)
       : null;
+    if (video && !videoUrl) {
+      setPublishing(false);
+      setError('Could not upload promo video.');
+      return;
+    }
+
+    const uploaded = [coverUrl, ...galleryUrls, ...(videoUrl ? [videoUrl] : [])];
 
     const result = await masterInstantPublish(
       user.id,
@@ -142,6 +136,7 @@ export function SponsorProposalWizard({ navigation }: Props) {
         hook: hook.trim(),
         helps_athletes: helpsAthletes.trim(),
         website_url: websiteUrl.trim(),
+        hero_image_url: coverUrl,
         video_url: videoUrl,
         logo_url: logoUrl,
         gallery_urls: galleryUrls,
@@ -268,13 +263,23 @@ export function SponsorProposalWizard({ navigation }: Props) {
         <Text style={styles.linkBtn} onPress={() => void pickLogo()}>
           {logo ? 'Change logo' : '+ Upload logo'}
         </Text>
-        {logo ? <Text style={styles.fileRow}>{logo.name}</Text> : null}
+        {logo ? (
+          <>
+            <Image source={{ uri: logo.uri }} style={styles.mediaPreviewSm} />
+            <Text style={styles.fileRow}>{logo.name}</Text>
+          </>
+        ) : null}
 
         <Text style={styles.label}>Cover image *</Text>
         <Text style={styles.linkBtn} onPress={() => void pickCover()}>
           {coverImage ? 'Change cover image' : '+ Upload cover image'}
         </Text>
-        {coverImage ? <Text style={styles.fileRow}>{coverImage.name}</Text> : null}
+        {coverImage ? (
+          <>
+            <Image source={{ uri: coverImage.uri }} style={styles.mediaPreview} />
+            <Text style={styles.fileRow}>{coverImage.name}</Text>
+          </>
+        ) : null}
 
         <Text style={styles.label}>Optional promo video</Text>
         <Text style={styles.linkBtn} onPress={() => void pickVideo()}>
@@ -469,6 +474,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: DS.color.textMuted,
     marginBottom: 4,
+  },
+  mediaPreview: {
+    width: '100%',
+    height: 160,
+    borderRadius: DS.radius.lg,
+    marginBottom: DS.space.sm,
+    backgroundColor: DS.color.surfaceAlt,
+  },
+  mediaPreviewSm: {
+    width: 96,
+    height: 96,
+    borderRadius: DS.radius.md,
+    marginBottom: DS.space.sm,
+    backgroundColor: DS.color.surfaceAlt,
   },
   reviewTitle: {
     fontFamily: DS.font.heading,

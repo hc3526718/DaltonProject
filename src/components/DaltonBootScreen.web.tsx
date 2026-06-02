@@ -1,29 +1,15 @@
-import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DS } from '../designSystem';
-import { DaltonBootRiveDisplay } from './DaltonBootRiveDisplay';
-import { BouncingBrandLogo } from './BouncingBrandLogo';
+import { DALTON_BOOT_VIDEO_BG } from '../constants/daltonBootVideo';
+import { BootCircleLoader } from './BootCircleLoader';
 
-/** Web: Rive Cloud embed via iframe (see DaltonBootRiveDisplay.web.tsx). */
+/** Web app boot — gold ring loader on pure black. */
 export function DaltonBootScreen() {
   const insets = useSafeAreaInsets();
-  const [useFallback, setUseFallback] = useState(false);
-
-  const onEmbedError = useCallback(() => setUseFallback(true), []);
-  const onNativeError = useCallback(() => setUseFallback(true), []);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      {useFallback ? (
-        <BouncingBrandLogo size={180} />
-      ) : (
-        <DaltonBootRiveDisplay
-          style={styles.rive}
-          onEmbedError={onEmbedError}
-          onNativeError={onNativeError}
-        />
-      )}
+      <BootCircleLoader size={64} compact />
     </View>
   );
 }
@@ -31,15 +17,8 @@ export function DaltonBootScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: DS.color.background,
+    backgroundColor: DALTON_BOOT_VIDEO_BG,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  rive: {
-    width: '100%',
-    height: '100%',
-    maxWidth: 360,
-    maxHeight: 360,
-    backgroundColor: DS.color.background,
   },
 });

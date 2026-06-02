@@ -27,6 +27,7 @@ import { hasPremiumOrAdminTier } from '../subscriptions/navigateToPremiumPaywall
 import { gatePremiumFeatureAccess } from '../subscriptions/premiumFeatureGate';
 import { canCreateVerifiedContent } from '../creator/creatorAccess';
 import { uploadCatalogMediaVideo } from '../lib/catalogMediaUpload';
+import { pickLocalVideo } from '../lib/pickLocalMedia';
 import { pickWebMediaFile } from '../lib/webFilePicker';
 import { isSupabaseConfigured } from '../lib/env';
 
@@ -82,19 +83,8 @@ export function CreateMediaContentScreen({ navigation }: Props) {
       if (picked?.uri) setVideoUri(picked.uri);
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to attach a video.');
-      return;
-    }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      allowsEditing: false,
-      quality: 1,
-    });
-    if (!res.canceled && res.assets[0]?.uri) {
-      setVideoUri(res.assets[0].uri);
-    }
+    const picked = await pickLocalVideo({ title: 'Training video' });
+    if (picked[0]?.uri) setVideoUri(picked[0].uri);
   }, []);
 
   const submit = useCallback(() => {

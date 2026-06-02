@@ -14,7 +14,7 @@ export type ScreenshotConversationSummary = {
   peer_avatar_url: string | null;
   last_body: string | null;
   last_at: string | null;
-  last_sender_id?: string | null;
+  last_sender_id: string | null;
 };
 
 /** Same shape as `CommunityPostFeedRow` in `liveDataService` (avoid circular import). */
@@ -434,6 +434,7 @@ export function getScreenshotSampleConversationSummaries(): ScreenshotConversati
       peer_avatar_url: IMG.portrait3,
       last_body: COACH_MSG_TEMPLATES[COACH_MSG_TEMPLATES.length - 1]!.body,
       last_at: minutesAgo(2),
+      last_sender_id: null,
     },
     {
       conversation_id: S.convSarah,
@@ -442,6 +443,7 @@ export function getScreenshotSampleConversationSummaries(): ScreenshotConversati
       peer_avatar_url: IMG.portrait2,
       last_body: SARAH_MSG_TEMPLATES[SARAH_MSG_TEMPLATES.length - 1]!.body,
       last_at: minutesAgo(15),
+      last_sender_id: null,
     },
     {
       conversation_id: S.convMarcus,
@@ -450,6 +452,7 @@ export function getScreenshotSampleConversationSummaries(): ScreenshotConversati
       peer_avatar_url: IMG.portrait,
       last_body: MARCUS_MSG_TEMPLATES[MARCUS_MSG_TEMPLATES.length - 1]!.body,
       last_at: minutesAgo(60),
+      last_sender_id: null,
     },
     {
       conversation_id: S.convEmma,
@@ -458,6 +461,7 @@ export function getScreenshotSampleConversationSummaries(): ScreenshotConversati
       peer_avatar_url: IMG.portrait2,
       last_body: EMMA_MSG_TEMPLATES[EMMA_MSG_TEMPLATES.length - 1]!.body,
       last_at: minutesAgo(195),
+      last_sender_id: null,
     },
   ];
 }

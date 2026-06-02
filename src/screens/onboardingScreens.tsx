@@ -20,6 +20,7 @@ import { AuthWebBackBar } from '../components/AuthWebBackBar';
 import { AuthWelcomeRiveHero } from '../components/AuthWelcomeRiveHero';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { authBackHandler } from '../lib/authNavigation';
+import { DALTON_BOOT_VIDEO_BG } from '../constants/daltonBootVideo';
 import { DS } from '../designSystem';
 import { BRAND_NAME } from '../constants/brand';
 import { openLegalPage } from '../lib/legalUrls';
@@ -484,7 +485,7 @@ export function AuthFormField({ label, children }: { label: string; children: Re
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: DS.color.background,
+    backgroundColor: DALTON_BOOT_VIDEO_BG,
   },
   scrollPad: {
     paddingHorizontal: DS.space.lg,

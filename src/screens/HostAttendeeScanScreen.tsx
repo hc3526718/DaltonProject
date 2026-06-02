@@ -217,11 +217,11 @@ function ScanMaskOverlay() {
         <Image source={QR_SCAN_ICON} style={scanMask.qrGraphic} tintColor={DS.color.text} />
       </View>
       <View style={scanMask.midRow}>
-        <View style={scanMask.sideDim(dim)} />
+        <View style={sideDimStyle(dim)} />
         <View style={scanMask.window} />
-        <View style={scanMask.sideDim(dim)} />
+        <View style={sideDimStyle(dim)} />
       </View>
-      <View style={[scanMask.bottomDim(dim)]}>
+      <View style={[bottomDimStyle(dim)]}>
         <Text style={scanMask.micro}>Bookings QR from the attendee confirmation screen also work.</Text>
       </View>
     </View>
@@ -239,18 +239,6 @@ const scanMask = StyleSheet.create({
     borderColor: DS.color.goldTint30,
     backgroundColor: 'transparent',
   },
-  sideDim: (dark: string) =>
-    ({
-      flex: 1,
-      height: FRAME_SIZE,
-      backgroundColor: dark,
-    }) as const,
-  bottomDim: (dark: string) =>
-    ({
-      flex: 1.4,
-      width: '100%',
-      backgroundColor: dark,
-    }) as const,
   hint: {
     marginTop: 48,
     textAlign: 'center',
@@ -269,6 +257,14 @@ const scanMask = StyleSheet.create({
     paddingHorizontal: DS.space.lg,
   },
 });
+
+function sideDimStyle(dark: string) {
+  return { flex: 1, height: FRAME_SIZE, backgroundColor: dark } as const;
+}
+
+function bottomDimStyle(dark: string) {
+  return { flex: 1.4, width: '100%', backgroundColor: dark } as const;
+}
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.color.background },

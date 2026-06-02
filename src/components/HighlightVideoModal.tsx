@@ -4,12 +4,18 @@ import { WebView } from 'react-native-webview';
 import { FontAwesome } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DS } from '../designSystem';
+import { getDaltonWebUrl } from '../lib/env';
 import {
   isPlayableVideoUrl,
   resolveHighlightOpenUrl,
   resolveHighlightPlaybackUrl,
 } from '../lib/profileHighlights';
-import { isYouTubeUrl } from '../lib/youtube';
+import {
+  isYouTubeUrl,
+  parseYouTubeVideoId,
+  youTubeEmbedUrl,
+  youTubeNativeWebViewSource,
+} from '../lib/youtube';
 
 type Props = {
   visible: boolean;
@@ -41,11 +47,15 @@ function WebYouTubeEmbed({ src, title }: { src: string; title: string }) {
 /** Full-screen overlay for profile highlight clips (YouTube embed or direct file URL). */
 export function HighlightVideoModal({ visible, title, videoUrl, onClose }: Props) {
   const insets = useSafeAreaInsets();
+  const embedOrigin = getDaltonWebUrl();
   const playbackUrl = resolveHighlightPlaybackUrl(videoUrl);
   const openUrl = resolveHighlightOpenUrl(videoUrl);
-  const playable = playbackUrl != null;
+  const youtubeId = parseYouTubeVideoId(videoUrl);
+  const playable = playbackUrl != null || youtubeId != null;
   const isYoutube = isYouTubeUrl(videoUrl);
-  const useWebIframe = Platform.OS === 'web' && isYoutube && playbackUrl;
+  const webEmbedSrc = youtubeId ? youTubeEmbedUrl(youtubeId, embedOrigin) : playbackUrl;
+  const youtubeWebViewSource = youtubeId ? youTubeNativeWebViewSource(youtubeId, embedOrigin) : null;
+  const useWebIframe = Platform.OS === 'web' && isYoutube && webEmbedSrc;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -59,15 +69,46 @@ export function HighlightVideoModal({ visible, title, videoUrl, onClose }: Props
           </Pressable>
         </View>
         <View style={styles.playerWrap}>
-          {playable && useWebIframe ? (
-            <WebYouTubeEmbed src={playbackUrl} title={title} />
-          ) : playable && isYoutube && playbackUrl && Platform.OS !== 'web' ? (
-            <WebView
-              source={{ uri: playbackUrl }}
-              style={styles.embed}
-              allowsFullscreenVideo
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled
+          {playable && useWebIframe && webEmbedSrc ? (
+            <WebYouTubeEmbed src={webEmbedSrc} title={title} />
+          ) : playable && isYoutube && youtubeId && youtubeWebViewSource && Platform.OS !== 'web' ? (
+            <>
+              <WebView
+                source={youtubeWebViewSource}
+                style={styles.embed}
+                allowsFullscreenVideo
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled
+                domStorageEnabled
+                sharedCookiesEnabled
+                thirdPartyCookiesEnabled
+                originWhitelist={['https://*']}
+                setSupportMultipleWindows={false}
+              />
+              {openUrl ? (
+                <Pressable
+                  style={styles.openYoutubeBtn}
+                  onPress={() => void Linking.openURL(openUrl)}
+                >
+                  <FontAwesome name="youtube-play" size={16} color={DS.color.gold} />
+                  <Text style={styles.openYoutubeTxt}>Open in YouTube if playback fails</Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : playable && playbackUrl && isPlayableVideoUrl(playbackUrl) && Platform.OS === 'web' ? (
+            <video
+              src={playbackUrl}
+              controls
+              autoPlay
+              playsInline
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                backgroundColor: '#000',
+              }}
             />
           ) : playable && playbackUrl && isPlayableVideoUrl(playbackUrl) ? (
             <Video
@@ -162,6 +203,23 @@ const styles = StyleSheet.create({
   openBtnTxt: {
     fontFamily: DS.font.bodyMedium,
     fontSize: 15,
+    color: DS.color.gold,
+  },
+  openYoutubeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.md,
+    paddingVertical: 12,
+    paddingHorizontal: DS.space.lg,
+    borderRadius: DS.radius.lg,
+    borderWidth: 1,
+    borderColor: DS.color.goldTint30,
+  },
+  openYoutubeTxt: {
+    fontFamily: DS.font.bodyMedium,
+    fontSize: 14,
     color: DS.color.gold,
   },
 });

@@ -1,0 +1,64 @@
+/* Marketing site: VideoP transition — black wipes + 50% centered video */
+:root {
+  --ga-ink: #000000;
+  --ga-mist: #d4d0c8;
+  --ga-gold: #c8a84b;
+  --ga-wipe-ms: 400ms;
+  --ga-video-display-ms: 2000ms;
+}
+
+#ga-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #000;
+  display: none;
+  pointer-events: none;
+}
+
+#ga-transition.ga-on {
+  display: block;
+  pointer-events: auto;
+}
+
+#ga-transition .ga-stage {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+#ga-transition .ga-video-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  z-index: 1;
+}
+
+/* 0.5× previous full-bleed size */
+#ga-transition .ga-video {
+  width: 50%;
+  height: 50%;
+  max-width: 50vw;
+  max-height: 50vh;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Black curtain — wipes vertically */
+#ga-transition .ga-wipe-curtain {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 2;
+  transform: translateY(0%);
+  transition: transform var(--ga-wipe-ms) ease-in-out;
+  will-change: transform;
+}
+
+#ga-transition .ga-wipe-curtain.ga-no-transition {
+  transition: none;
+}

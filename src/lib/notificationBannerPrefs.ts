@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { InAppNotification } from '../roadmap/notificationsService';
+import {
+  canAccessInAppNotifyCategory,
+  inAppNotifyCategoriesForUser,
+} from './notifyPrefsAccess';
 
 const KEY = 'dalton_inapp_notify_prefs';
+
+let prefsCache: InAppNotifyPrefs | null = null;
 
 export type InAppNotifyPrefs = {
   /** Master toggle for dropdown / banners */
@@ -55,10 +61,18 @@ const KEYS: (keyof InAppNotifyPrefs)[] = [
   'system',
 ];
 
+export function invalidateInAppNotifyPrefsCache(): void {
+  prefsCache = null;
+}
+
 export async function loadInAppNotifyPrefs(): Promise<InAppNotifyPrefs> {
+  if (prefsCache) return { ...prefsCache };
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT_NOTIFY_PREFS };
+    if (!raw) {
+      prefsCache = { ...DEFAULT_NOTIFY_PREFS };
+      return prefsCache;
+    }
     const o = JSON.parse(raw) as Record<string, unknown>;
     const out: InAppNotifyPrefs = { ...DEFAULT_NOTIFY_PREFS };
 
@@ -79,6 +93,7 @@ export async function loadInAppNotifyPrefs(): Promise<InAppNotifyPrefs> {
       if (typeof o.eventCreation !== 'boolean') out.eventCreation = legacyEvents;
     }
 
+    prefsCache = out;
     return out;
   } catch {
     return { ...DEFAULT_NOTIFY_PREFS };
@@ -87,7 +102,35 @@ export async function loadInAppNotifyPrefs(): Promise<InAppNotifyPrefs> {
 
 export async function saveInAppNotifyPrefs(prefs: Partial<InAppNotifyPrefs>): Promise<void> {
   const cur = await loadInAppNotifyPrefs();
-  await AsyncStorage.setItem(KEY, JSON.stringify({ ...cur, ...prefs }));
+  const next = { ...cur, ...prefs };
+  prefsCache = next;
+  await AsyncStorage.setItem(KEY, JSON.stringify(next));
+}
+
+/** Whether an in-app banner should surface for this category (respects master-only gates). */
+export function isInAppBannerAllowed(
+  category: InAppNotifyCategory,
+  prefs: InAppNotifyPrefs,
+  isMaster: boolean,
+): boolean {
+  if (!prefs.enabled) return false;
+  if (!canAccessInAppNotifyCategory(category, isMaster)) return false;
+  return prefs[category] !== false;
+}
+
+export function sanitizeInAppPrefsForAccount(
+  prefs: InAppNotifyPrefs,
+  isMaster: boolean,
+): InAppNotifyPrefs {
+  const allowed = new Set(inAppNotifyCategoriesForUser(isMaster));
+  const out: InAppNotifyPrefs = { ...DEFAULT_NOTIFY_PREFS, ...prefs };
+  for (const key of KEYS) {
+    if (key === 'enabled') continue;
+    if (!allowed.has(key as InAppNotifyCategory)) {
+      out[key] = false;
+    }
+  }
+  return out;
 }
 
 /** Rough bucket for dropdown filtering until DB adds a typed `notification_kind` column. */

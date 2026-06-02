@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Dalton Grant Academy — Features</title>
+  <meta name="description" content="Community, events, media, and sponsors — everything in the web app for athletes." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/site-transition.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#0A0A0A',
+            gold: '#C8A84B',
+            mist: '#D4D0C8',
+            dim: '#9A9690',
+            line: 'rgba(255,255,255,0.09)',
+            panel: 'rgba(255,255,255,0.04)',
+          },
+          fontFamily: {
+            bebas: ['"Bebas Neue"', 'sans-serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background:
+        radial-gradient(1200px 860px at 18% -12%, rgba(200, 168, 75, 0.22), transparent 58%),
+        radial-gradient(700px 520px at 60% 110%, rgba(232, 83, 58, 0.10), transparent 58%),
+        var(--demo-bg);
+      color: var(--demo-text);
+    }
+    .feat-hero-rule {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(200, 168, 75, 0.55), transparent);
+    }
+    .feat-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      padding: 2rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    @media (min-width: 768px) {
+      .feat-row {
+        grid-template-columns: 7rem 1fr;
+        gap: 2.5rem;
+        align-items: start;
+        padding: 2.75rem 0;
+      }
+    }
+    .feat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3.5rem;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      color: rgba(200, 168, 75, 0.85);
+    }
+    .feat-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+    .feat-tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid rgba(200, 168, 75, 0.28);
+      color: #d4d0c8;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased dalton-marketing">
+  <div id="dalton-staggered-menu"></div>
+
+  <main class="mx-auto max-w-4xl px-5 pt-20 pb-10 md:pt-24 md:pb-14">
+    <p class="font-bebas text-gold tracking-[0.26em] text-sm">FEATURES</p>
+    <h1 class="font-bebas text-mist tracking-wide text-5xl md:text-6xl leading-[0.95] mt-3 max-w-3xl">
+      Built for athletes. Available in the web app.
+    </h1>
+    <p class="text-dim mt-5 max-w-2xl leading-relaxed text-lg">
+      One account on web and iOS — community, coached events, training media, and partner pages without juggling five different tools.
+    </p>
+    <div class="feat-hero-rule mt-10 mb-2"></div>
+
+    <section class="feat-row">
+      <p class="feat-num">01</p>
+      <div>
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">COMMUNITY</p>
+        <h2 class="font-bebas text-mist text-4xl md:text-5xl tracking-wide mt-2 leading-none">Train in public. Stay accountable.</h2>
+        <p class="text-dim mt-4 leading-relaxed max-w-2xl">
+          Post updates, react, and message athletes and coaches in private threads. The feed is built for sport — not generic social noise.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Feed</span>
+          <span class="feat-tag">DMs</span>
+          <span class="feat-tag">Profiles</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="feat-row">
+      <p class="feat-num">02</p>
+      <div>
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">EVENTS</p>
+        <h2 class="font-bebas text-mist text-4xl md:text-5xl tracking-wide mt-2 leading-none">Discover sessions. Book your spot.</h2>
+        <p class="text-dim mt-4 leading-relaxed max-w-2xl">
+          Browse upcoming camps and clinics, reserve attendance, and keep confirmations in one place. Hosts can publish events with clear entry payment notices on the day.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Browse &amp; book</span>
+          <span class="feat-tag">My bookings</span>
+          <span class="feat-tag">QR check-in</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="feat-row">
+      <p class="feat-num">03</p>
+      <div>
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">MEDIA</p>
+        <h2 class="font-bebas text-mist text-4xl md:text-5xl tracking-wide mt-2 leading-none">Proof of work that travels with you.</h2>
+        <p class="text-dim mt-4 leading-relaxed max-w-2xl">
+          Podcasts, interviews, and training series from the academy — plus a library you can search and save for later.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Library</span>
+          <span class="feat-tag">Saved media</span>
+          <span class="feat-tag">Search</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="feat-row border-b-0">
+      <p class="feat-num">04</p>
+      <div>
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">SPONSORS</p>
+        <h2 class="font-bebas text-mist text-4xl md:text-5xl tracking-wide mt-2 leading-none">Partnerships with context.</h2>
+        <p class="text-dim mt-4 leading-relaxed max-w-2xl">
+          Official partner pages with offers, links, and academy-backed campaigns — so athletes see real opportunities, not random ads.
+        </p>
+        <div class="feat-tags">
+          <span class="feat-tag">Partner pages</span>
+          <span class="feat-tag">Offers</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="rounded-[2rem] border border-line bg-panel p-8 md:p-12 mt-14 relative overflow-hidden">
+      <div class="absolute -top-24 -right-28 w-[420px] h-[420px] rounded-full bg-gold/15 blur-3xl pointer-events-none"></div>
+      <p class="font-bebas text-gold tracking-[0.26em] text-sm relative">GET STARTED</p>
+      <h2 class="font-bebas text-mist tracking-wide text-4xl md:text-5xl mt-3 relative leading-none">Open the web app</h2>
+      <p class="text-dim mt-5 max-w-2xl leading-relaxed relative">
+        Sign in on the web with the same account as iOS. Need guidance first? Visit
+        <a href="/help-center" class="text-gold hover:opacity-90">Help</a>
+        or
+        <a href="/contact-us" class="text-gold hover:opacity-90">Contact</a>.
+      </p>
+      <div class="mt-8 flex flex-col sm:flex-row gap-3 relative">
+        <a href="/app" class="px-6 py-3.5 rounded-2xl bg-gold text-ink font-semibold text-sm text-center hover:opacity-90 transition-opacity">Open web app</a>
+        <a href="/contact-us" class="px-6 py-3.5 rounded-2xl border border-gold/35 text-gold font-semibold text-sm text-center hover:bg-gold/10 transition-colors">Contact the team</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="shared/marketing-chrome.js"></script>
+  <script src="shared/site-transition.js"></script>
+</body>
+</html>

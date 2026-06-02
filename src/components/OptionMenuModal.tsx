@@ -28,7 +28,8 @@ export function OptionMenuModal({ visible, title, options, onClose }: Props) {
               style={styles.row}
               onPress={() => {
                 onClose();
-                opt.onPress();
+                // Defer so modal unmounts before navigation / nested modals (web).
+                setTimeout(() => opt.onPress(), 0);
               }}
             >
               <Text style={[styles.rowText, opt.destructive && styles.destructive]}>{opt.label}</Text>

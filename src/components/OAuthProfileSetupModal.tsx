@@ -26,7 +26,6 @@ import {
   normalizeUsernameTyping,
 } from '../profile/usernameProfile';
 import { useUsernameAvailability } from '../profile/useUsernameAvailability';
-import { MasterControlRecoverySteps } from './MasterControlRecoverySteps';
 import { UsernameSetupFields, canProceedWithUsername } from './UsernameSetupFields';
 
 type Props = {
@@ -234,7 +233,7 @@ export function OAuthProfileSetupModal({ visible, onCompleted }: Props) {
         style={styles.scrim}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.card, { marginTop: Math.max(insets.top, DS.space.base) }]}>
+        <View style={styles.card}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -357,10 +356,6 @@ export function OAuthProfileSetupModal({ visible, onCompleted }: Props) {
                     );
                   })}
                 </View>
-                <MasterControlRecoverySteps
-                  style={{ marginTop: DS.space.lg, marginBottom: DS.space.sm }}
-                  includesPasswordGate={false}
-                />
               </>
             ) : null}
           </ScrollView>
@@ -413,15 +408,15 @@ const styles = StyleSheet.create({
   scrim: {
     flex: 1,
     backgroundColor: DS.color.overlayDark80,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: DS.space.lg,
-    paddingBottom: DS.space.md,
+    paddingVertical: DS.space.md,
   },
   card: {
     width: '100%',
     maxWidth: 440,
-    maxHeight: '92%',
+    maxHeight: '90%',
     backgroundColor: 'rgba(16,16,16,0.97)',
     borderRadius: DS.radius.xl,
     borderWidth: 1,

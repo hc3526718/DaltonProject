@@ -1,12 +1,13 @@
-/** Read a local file URI (native or web blob:) into a Blob for Supabase storage upload. */
+import { Platform } from 'react-native';
+import { readLocalFileAsArrayBuffer } from './readLocalFileBytes';
+
+/** Read a local file URI into a Blob (web only — native uploads should use `uploadLocalUriToStorage`). */
 export async function uriToBlob(uri: string, mimeType?: string): Promise<Blob> {
-  const res = await fetch(uri);
-  if (!res.ok) {
-    throw new Error(`Could not read file (${res.status})`);
+  if (Platform.OS !== 'web') {
+    throw new Error(
+      'uriToBlob is not supported on native. Use uploadLocalUriToStorage with ArrayBuffer instead.',
+    );
   }
-  const blob = await res.blob();
-  if (mimeType && blob.type !== mimeType) {
-    return blob.slice(0, blob.size, mimeType);
-  }
-  return blob;
+  const buffer = await readLocalFileAsArrayBuffer(uri);
+  return new Blob([buffer], { type: mimeType ?? 'application/octet-stream' });
 }

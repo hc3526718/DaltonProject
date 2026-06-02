@@ -1,0 +1,56 @@
+/**
+ * Loaded after marketing-ui.css — fixes that must win over bundle order.
+ */
+
+/* Header horizontal inset (all marketing pages) */
+.dalton-marketing .staggered-menu-header,
+.dalton-marketing .dalton-header-fallback {
+  padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 768px) {
+  .dalton-marketing .staggered-menu-header,
+  .dalton-marketing .dalton-header-fallback {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* Hamburger: no gold box (base .sm-toggle wins in bundle without this file) */
+#dalton-staggered-menu .staggered-menu-header .sm-toggle.sm-toggle--hamburger {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0.55rem !important;
+  border-radius: 0 !important;
+}
+
+#dalton-staggered-menu .sm-hamburger span {
+  background: #d4d0c8 !important;
+}
+
+#dalton-staggered-menu .staggered-menu-header,
+#dalton-staggered-menu .sm-header-start,
+#dalton-staggered-menu .sm-toggle.sm-toggle--hamburger,
+#dalton-staggered-menu .sm-hamburger {
+  overflow: visible !important;
+}
+
+/* Contact form + marketing selects: dark list, inverted highlight */
+.dalton-marketing select {
+  color-scheme: dark;
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+.dalton-marketing select option {
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+.dalton-marketing select option:checked,
+.dalton-marketing select option:focus {
+  background-color: #ffffff;
+  color: #0a0a0a;
+}

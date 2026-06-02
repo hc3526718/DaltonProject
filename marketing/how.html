@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Dalton Grant Academy — How it works</title>
+  <meta name="description" content="How The Dalton Grant Academy helps athletes train with intention, build a network, and turn consistency into opportunity." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/theme.css">
+  <link rel="stylesheet" href="shared/site-transition.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#0A0A0A',
+            gold: '#C8A84B',
+            mist: '#D4D0C8',
+            dim: '#9A9690',
+            line: 'rgba(255,255,255,0.09)',
+            panel: 'rgba(255,255,255,0.04)',
+            panel2: 'rgba(255,255,255,0.03)',
+          },
+          fontFamily: {
+            bebas: ['"Bebas Neue"', 'sans-serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background:
+        radial-gradient(1100px 820px at 12% -10%, rgba(200, 168, 75, 0.18), transparent 60%),
+        radial-gradient(900px 720px at 105% 18%, rgba(212, 208, 200, 0.10), transparent 55%),
+        var(--demo-bg);
+      color: var(--demo-text);
+    }
+    .grain {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      opacity: 0.08;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+      background-size: 260px 260px;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased dalton-marketing">
+  <div class="grain"></div>
+  <div id="dalton-staggered-menu"></div>
+
+  <main class="mx-auto max-w-6xl px-5 pt-20 pb-10 md:pt-24 md:pb-14">
+    <p class="font-bebas text-gold tracking-[0.26em] text-sm">A SYSTEM THAT COMPOUNDS</p>
+    <h1 class="font-bebas text-mist tracking-wide text-5xl md:text-6xl leading-[0.95] mt-3">
+      Train with intention.<br/>Connect with standards.<br/>Turn consistency into opportunity.
+    </h1>
+    <p class="text-dim mt-5 max-w-3xl leading-relaxed">
+      The Dalton Grant Academy is designed around a simple loop that athletes can repeat anywhere: plan, execute, capture proof,
+      get feedback, and show up ready.
+    </p>
+
+    <div class="grid md:grid-cols-12 gap-4 mt-10">
+      <div class="md:col-span-4 rounded-3xl border border-line bg-panel2 p-6">
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">01 · DISCOVER</p>
+        <p class="text-mist font-semibold mt-2">Find the right rooms</p>
+        <p class="text-dim text-sm mt-2">Events, sessions, and communities that match your goals—not generic noise.</p>
+      </div>
+      <div class="md:col-span-4 rounded-3xl border border-line bg-panel2 p-6">
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">02 · BUILD</p>
+        <p class="text-mist font-semibold mt-2">A network that raises you</p>
+        <p class="text-dim text-sm mt-2">Follow requests, DMs, and feedback loops designed to keep standards high.</p>
+      </div>
+      <div class="md:col-span-4 rounded-3xl border border-line bg-panel2 p-6">
+        <p class="font-bebas text-gold tracking-[0.22em] text-xs">03 · PROVE</p>
+        <p class="text-mist font-semibold mt-2">Show the work</p>
+        <p class="text-dim text-sm mt-2">Training clips and posts act as a living portfolio—progress you can point to.</p>
+      </div>
+    </div>
+
+    <div class="rounded-[2rem] border border-line bg-panel p-8 md:p-12 mt-12 relative overflow-hidden">
+      <div class="absolute -top-24 -right-28 w-[420px] h-[420px] rounded-full bg-gold/15 blur-3xl"></div>
+      <p class="font-bebas text-gold tracking-[0.26em] text-sm relative">WHAT MAKES IT DIFFERENT</p>
+      <h2 class="font-bebas text-mist tracking-wide text-4xl md:text-5xl mt-3 relative">Semantic actions. Predictable patterns.</h2>
+      <p class="text-dim mt-5 max-w-3xl leading-relaxed relative">
+        Following modern UI principles (semantic intent, accessibility-first, and composable building blocks),
+        The Dalton Grant Academy stays simple when you need speed—and scales when you need depth.
+      </p>
+      <div class="mt-8 flex flex-col sm:flex-row gap-3 relative">
+        <a href="/features" class="px-6 py-3 rounded-2xl bg-gold text-ink font-semibold text-sm text-center hover:opacity-90 transition-opacity">Explore features</a>
+        <a href="/impact" class="px-6 py-3 rounded-2xl border border-gold/35 text-gold font-semibold text-sm text-center hover:bg-gold/10 transition-colors">Why it matters</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="mx-auto max-w-6xl px-5 pb-12 pt-8 text-xs text-dim">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-t border-line pt-6">
+      <p>© <span id="y"></span> The Dalton Grant Academy.</p>
+      <div class="flex flex-wrap items-center gap-4">
+        <a class="hover:text-mist transition-colors" href="/privacy">Privacy</a>
+        <a class="hover:text-mist transition-colors" href="/terms">Terms</a>
+        <a class="hover:text-mist transition-colors" href="/app">Web app</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+  <script src="shared/marketing-chrome.js"></script>
+  <script src="shared/site-transition.js"></script>
+</body>
+</html>
+

@@ -16,7 +16,6 @@ import {
   fetchCustomerInfo,
   identifyRevenueCatUser,
 } from './revenueCat';
-import { PremiumSubscriptionThanksModal } from '../components/PremiumSubscriptionThanksModal';
 import { resolvePaymentVerifiedAccess, resolvePremiumAccess } from './resolvePremiumAccess';
 import { useStripeCheckoutReturn } from './useStripeCheckoutReturn';
 
@@ -69,10 +68,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [sessionEmail]);
 
   const onStripeReturn = useCallback(
-    (kind: 'success' | 'cancel') => {
-      void refresh().then(() => {
-        if (kind === 'success') setPremiumThanksVisible(true);
-      });
+    (_kind: 'success' | 'cancel') => {
+      void refresh();
     },
     [refresh],
   );
@@ -128,12 +125,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [isPro, isPaymentVerified, busy, refresh, restore, notifyNewPremiumFromPaywall],
   );
 
-  return (
-    <>
-      <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>
-      <PremiumSubscriptionThanksModal visible={premiumThanksVisible} onDismiss={dismissPremiumThanks} />
-    </>
-  );
+  return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
 }
 
 export function useSubscription() {

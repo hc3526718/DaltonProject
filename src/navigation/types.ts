@@ -24,6 +24,7 @@ export type CommunityStackParamList = {
     initialDraft?: string;
   };
   BrandPartner: { pageId?: string } | undefined;
+  EditSponsor: { pageId: string };
   DemoHub: undefined;
 };
 
@@ -150,6 +151,7 @@ export type OnboardingStackParamList = {
   OnboardingSports: undefined;
   OnboardingInterests: undefined;
   OnboardingDiscovery: undefined;
+  OnboardingMembership: undefined;
   OnboardingComplete: undefined;
 };
 

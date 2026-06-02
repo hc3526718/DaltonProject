@@ -16,8 +16,16 @@ export const DS = {
     text: '#D4D0C8',
     /** Screen titles (top-left, light grey) */
     screenTitle: '#B8B4AC',
+    /** Softer label text (used in a11y + themed text). */
+    textSubtle: '#B8B4AC',
     textMuted: '#9A9690',
     border: '#787570',
+    /** Stronger divider for elevated contrast UI. */
+    borderStrong: 'rgba(255, 255, 255, 0.18)',
+    /** Generic panel fill used by some screens. */
+    panel: 'rgba(255, 255, 255, 0.06)',
+    /** Slightly stronger panel fill (contrast mode). */
+    panelStrong: 'rgba(255, 255, 255, 0.10)',
     error: '#E8533A',
     goldTint10: 'rgba(200, 168, 75, 0.1)',
     goldTint30: 'rgba(200, 168, 75, 0.3)',
@@ -44,6 +52,8 @@ export const DS = {
   },
   /** Register via `useFonts(appFontSources)` in App — mirrors mockup fonts */
   font: {
+    /** Alias used by some older screens; keep as heading. */
+    display: 'BebasNeue_400Regular',
     heading: 'BebasNeue_400Regular',
     body: 'DMSans_400Regular',
     bodyMedium: 'DMSans_500Medium',

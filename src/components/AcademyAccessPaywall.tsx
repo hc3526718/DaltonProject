@@ -83,8 +83,8 @@ export function AcademyAccessPaywall({ onAccessGranted }: Props) {
         <Text style={styles.kicker}>THE DALTON GRANT ACADEMY</Text>
         <Text style={styles.title}>Unlock full academy access</Text>
         <Text style={styles.subtitle}>
-          A small monthly fee keeps the platform running and gives you everything Dalton has prepared for athletes in
-          his academy — media, events, sponsors, and community.
+          A small monthly fee keeps the app alive and funds high-quality content from Dalton, while connecting you with
+          likeminded aspiring athletes for support, encouragement, and guidance — plus media, events, and sponsors.
         </Text>
         <View style={styles.priceCard}>
           <Text style={styles.price}>£2</Text>

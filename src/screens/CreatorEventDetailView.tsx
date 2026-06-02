@@ -18,7 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandLogo } from '../components/BrandLogo';
 import { AppleHeroButton } from '../components/AppleHeroButton';
 import { OptionMenuModal } from '../components/OptionMenuModal';
+import { EventDetailSections } from '../components/EventDetailSections';
 import { DS } from '../designSystem';
+import { formatEntryPaymentNotice } from '../lib/eventEntryPayment';
+import { resolveEventPresentation } from '../lib/eventDescriptionParse';
 import type { EventsStackParamList } from '../navigation/types';
 import type { EventReviewRow, EventRow } from '../roadmap/types';
 import {
@@ -246,16 +249,15 @@ export function CreatorEventDetailView({ navigation, event, onShare, onEdit, onD
             )}
           </View>
 
-          <Text style={styles.sectionK}>AGENDA & BRIEF</Text>
           <View style={styles.surface}>
-            {event.description?.trim() ? (
-              <Text style={styles.agenda}>{event.description.trim()}</Text>
-            ) : (
-              <Text style={styles.muted}>
-                Add timings and talking points in the event description when you create the next one — it
-                shows here as your run-of-show.
-              </Text>
-            )}
+            <EventDetailSections
+              parsed={resolveEventPresentation(event.description, event.event_details)}
+              entryPaymentLine={formatEntryPaymentNotice(
+                event.entry_payment_mode ?? 'none',
+                event.entry_payment_amount,
+                event.entry_payment_note,
+              )}
+            />
           </View>
 
           <Text style={styles.sectionK}>REGISTRATIONS</Text>

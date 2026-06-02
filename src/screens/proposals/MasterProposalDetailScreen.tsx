@@ -90,18 +90,16 @@ export function MasterProposalDetailScreen({ navigation, route }: Props) {
         authorUsername: prof?.username ?? null,
         authorDisplayName: prof?.display_name ?? row.author_display_name ?? null,
       });
-      navigation.getParent()?.navigate(
-        'Community' as never,
-        {
-          screen: 'MessageThread',
-          params: {
-            peerUserId: row.author_id,
-            name: row.author_display_name ?? 'Applicant',
-            markDiscussedProposalId: proposalId,
-            initialDraft,
-          },
-        } as never,
-      );
+      const parent = navigation.getParent() as unknown as { navigate: (...args: any[]) => void } | undefined;
+      parent?.navigate('Community', {
+        screen: 'MessageThread',
+        params: {
+          peerUserId: row.author_id,
+          name: row.author_display_name ?? 'Applicant',
+          markDiscussedProposalId: proposalId,
+          initialDraft,
+        },
+      });
     })();
   }, [navigation, proposalId, row]);
 

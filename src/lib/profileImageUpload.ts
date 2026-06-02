@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase';
-import { uriToBlob } from './uriToBlob';
+import { readLocalFileAsArrayBuffer } from './readLocalFileBytes';
 
 function inferImageExt(uri: string): string {
   const m = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
@@ -30,13 +30,16 @@ export async function uploadProfileImage(
   if (!supabase) return { ok: false, error: 'Not connected.' };
   try {
     const contentType = inferImageContentType(uri);
-    const blob = await uriToBlob(uri, contentType);
+    const body = await readLocalFileAsArrayBuffer(uri);
+    if (body.byteLength === 0) {
+      return { ok: false, error: 'Image file is empty.' };
+    }
     const ext = inferImageExt(uri);
     const rand = Math.random().toString(36).slice(2, 8);
     const storage_path = `profiles/${userId}/${kind}-${Date.now()}-${rand}.${ext}`;
     const { error } = await supabase.storage
       .from('media_assets')
-      .upload(storage_path, blob, { contentType, upsert: false });
+      .upload(storage_path, body, { contentType, upsert: false });
     if (error) {
       if (__DEV__) console.warn('[uploadProfileImage]', error.message);
       return { ok: false, error: error.message || 'Storage upload failed.' };
